@@ -1,3 +1,9 @@
+<div align="center">
+
+<img src="docs/EasyDSH.png" alt="EasyDSH — WPF one-click launcher for DeepSeek Harness" width="100%">
+
+<br>
+
 # DSH 一键启动器
 
 > 🌐 语言 / Language：[English](readmeEN.md) · **简体中文**
@@ -18,6 +24,8 @@
 - 🎨 **WPF 矢量界面**：圆角按钮、彩色状态卡片、悬停高亮
 - 📦 **单文件绿色版**：无需安装、无需配置文件，可放入 U 盘随处运行
 - 🛡 **服务冲突诊断**：启动失败时自动识别「插件服务名冲突」，弹窗说明谁占用、谁冲突，并可一键卸载其中一方
+
+<br>
 
 ## 📋 环境依赖
 
@@ -109,3 +117,5 @@ git push origin v1.0.0
 ## 📄 许可证
 
 MIT
+
+</div>

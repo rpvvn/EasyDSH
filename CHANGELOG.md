@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.0] - 2026-08-15
+
+### Added · 新增
+
+- 🔌 关闭窗口时可选择「仅关闭窗口」：保留 DSH 服务后台运行，不强制停止；弹窗提供「停止并关闭 / 仅关闭窗口 / 取消」三种选择
+  Closing the window now offers a "Close window only" option that keeps the DSH service running in the background without force-stopping it; the prompt provides three choices: Stop & Close / Close Only / Cancel
+- 🚫 单实例检测：启动时检测是否已有实例在运行，若已运行则提示「已经运行，请勿重复运行」并自动退出
+  Single-instance guard: on startup, detect if an instance is already running; if so, show "Already running — please do not run it again" and exit
+
 ## [1.1.0] - 2026-08-15
 
 ### Added · 新增

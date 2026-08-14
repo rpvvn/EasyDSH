@@ -1278,30 +1278,27 @@ namespace DshLauncherWpf
             catch { }
         }
 
+        private enum CloseChoice
+        {
+            Cancel,
+            StopAndClose,
+            CloseOnly
+        }
+
         protected override void OnClosing(CancelEventArgs e)
         {
             List<int> pids = CollectDshPids();
             if (pids.Count > 0)
             {
-                MessageBoxResult r = MessageBox.Show(
-                    "检测到 DSH 服务仍在运行（" + pids.Count + " 个进程）。\r\n\r\n关闭启动器将同时强制停止服务。\r\n确定要关闭吗？",
-                    "确认", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (r == MessageBoxResult.Yes)
+                CloseChoice choice = ShowClosePrompt(pids.Count);
+                if (choice == CloseChoice.StopAndClose)
                 {
-                    foreach (int id in pids)
-                    {
-                        try
-                        {
-                            Process.Start(new ProcessStartInfo
-                            {
-                                FileName = "taskkill",
-                                Arguments = "/F /T /PID " + id,
-                                UseShellExecute = false,
-                                CreateNoWindow = true
-                            });
-                        }
-                        catch { }
-                    }
+                    AppendLog("关闭启动器：正在强制停止 DSH 服务（" + pids.Count + " 个进程）...");
+                    ForceStopAll(pids);
+                }
+                else if (choice == CloseChoice.CloseOnly)
+                {
+                    AppendLog("启动器已关闭，DSH 服务保持运行（" + pids.Count + " 个进程）。");
                 }
                 else
                 {
@@ -1309,6 +1306,62 @@ namespace DshLauncherWpf
                 }
             }
             base.OnClosing(e);
+        }
+
+        private CloseChoice ShowClosePrompt(int pidCount)
+        {
+            CloseChoice result = CloseChoice.Cancel;
+
+            var dlg = new Window
+            {
+                Title = "关闭启动器",
+                Width = 480,
+                SizeToContent = SizeToContent.Height,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                ResizeMode = ResizeMode.NoResize,
+                Background = PanelBackBrush,
+                FontFamily = new FontFamily("Microsoft YaHei UI"),
+                FontSize = 13
+            };
+
+            var grid = new Grid { Margin = new Thickness(18) };
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var txt = new TextBlock
+            {
+                Text = "检测到 DSH 服务仍在运行（" + pidCount + " 个进程）。\r\n\r\n请选择关闭方式：",
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 16),
+                Foreground = new SolidColorBrush(Color.FromRgb(40, 44, 52))
+            };
+            grid.Children.Add(txt);
+
+            var btnPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            Grid.SetRow(btnPanel, 1);
+            grid.Children.Add(btnPanel);
+
+            var btnStop = MakeButton("停止并关闭", 110, Color.FromRgb(198, 60, 60));
+            btnStop.Click += delegate { result = CloseChoice.StopAndClose; dlg.Close(); };
+            btnPanel.Children.Add(btnStop);
+
+            var btnCloseOnly = MakeButton("仅关闭窗口", 110, Color.FromRgb(0, 122, 204));
+            btnCloseOnly.Click += delegate { result = CloseChoice.CloseOnly; dlg.Close(); };
+            btnPanel.Children.Add(btnCloseOnly);
+
+            var btnCancel = MakeButton("取消", 80, Color.FromRgb(88, 88, 96));
+            btnCancel.Click += delegate { result = CloseChoice.Cancel; dlg.Close(); };
+            btnPanel.Children.Add(btnCancel);
+
+            dlg.Content = grid;
+            dlg.Owner = this;
+            dlg.ShowDialog();
+
+            return result;
         }
 
         private sealed class CollisionInfo
@@ -1323,11 +1376,26 @@ namespace DshLauncherWpf
 
     internal static class Program
     {
+        private const string SingleInstanceMutexName =
+            "Global\\DSH-Launcher-SingleInstance-{4B2E6C0F-7A11-4E3D-9A5B-1C8F3E0D2A66}";
+
         [STAThread]
         private static void Main()
         {
-            var app = new Application();
-            app.Run(new MainWindow());
+            bool createdNew;
+            using (var mutex = new Mutex(true, SingleInstanceMutexName, out createdNew))
+            {
+                if (!createdNew)
+                {
+                    MessageBox.Show(
+                        "DSH 一键启动器已经运行，请勿重复运行。",
+                        "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var app = new Application();
+                app.Run(new MainWindow());
+            }
         }
     }
 }

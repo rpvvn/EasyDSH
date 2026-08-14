@@ -1,0 +1,12 @@
+# Build output
+DSH-Launcher.exe
+DSH启动器.exe
+*.exe
+
+# Logs
+crash.log
+*.log
+
+# Temporary files
+*.tmp
+*.obj

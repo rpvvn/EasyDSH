@@ -1,51 +1,65 @@
-# DSH Launcher
+<div align="center">
 
-> 🌐 Language / 语言：**English** · [简体中文](README.md)
+<img src="docs/EasyDSH.png" alt="EasyDSH — WPF one-click launcher for DeepSeek Harness" width="100%">
 
-A single-file, portable Windows GUI tool to launch, restart, and stop the **DSH (DeepSeek Harness)** web service — no more typing `npx @deepseek-ai/dsh web` every time.
+<br>
 
-Built with **WPF** (.NET Framework 4.0) — vector-rendered UI, zero third-party dependencies, double-click to run.
+# DSH One-Click Launcher
+> 🌐 Language: [简体中文](README.md) · **English**
+
+A single-file, portable Windows GUI utility<br>
+for starting, restarting and stopping the **DSH (DeepSeek Harness)** web service.<br>
+It saves you the trouble of manually entering `npx @deepseek-ai/dsh web` every time.
+
+Built on **WPF (.NET Framework 4.0)** with vector-rendered UI.<br>
+No third-party dependencies required — double-click to run directly.
 
 ---
+</div>
 
-## ✨ Features
+## ✨ Key Features
+- 🚀 **One-Click Start**: Automatically detect the runtime environment, launch the DSH Web service in the background, and open the browser automatically once the service is ready.
+- 🔄 **One-Click Restart**: Force terminate the running service → wait for the port to be released → restart the service.
+- ⏹ **Stop Service**: Globally scan all running DSH processes (Node.js processes + processes occupying port 3080) and force terminate them.
+- 📦 **One-Click Install**: Run `npm install -g @deepseek-ai/dsh` to complete global installation of DSH.
+- 🔍 **Environment Detection**: Real-time status cards with colored indicator dots showing the status of Node.js, npm, DSH (global installation / npx cache), and service port connectivity.
+- 🎨 **WPF Vector UI**: Rounded buttons, color-coded status panels, and hover highlight effects.
+- 📦 **Single-File Portable Release**: No installation or configuration files needed; you can store it on a USB drive and run it anywhere.
+- 🛡 **Service Conflict Diagnostics**: Automatically identify plugin service name conflicts when startup fails. A popup window will show which package occupies the service and which one causes the conflict, with a one-click uninstall option for either package.
 
-- 🚀 **One-click start** — detects the environment and launches the DSH web service in the background, auto-opens the browser once ready
-- 🔄 **One-click restart** — force-stops the current service → waits for the port to be released → restarts
-- ⏹ **Stop service** — globally scans all running DSH processes (node processes + port 3080) and force-kills them
-- 📦 **One-click install** — runs `npm install -g @deepseek-ai/dsh`
-- 🔍 **Environment detection** — real-time status of Node.js / npm / DSH (global / npx cache) / service port, shown as colored-dot cards
-- 🎨 **WPF vector UI** — rounded buttons, colored status cards, hover highlight
-- 📦 **Single-file portable** — no install, no config files, run from anywhere (e.g. a USB drive)
-- 🛡 **Service collision diagnosis** — on startup failure, detects plugin service-name collisions and shows a dialog naming the owner / claimant with one-click uninstall
+<br>
 
-## 📋 Requirements
-
+## 📋 Prerequisites
 | Dependency | Description |
 |------|------|
-| Windows 7+ | .NET Framework 4.0+ (pre-installed on Windows 10/11) |
-| Node.js | includes npm, used to run / install DSH |
+| Windows 7 or later | Requires .NET Framework 4.0 or higher (pre-installed on Windows 10 / 11) |
+| Node.js | Bundled with npm, required for installing and running DSH |
 
-## 🚀 Usage
+<br>
 
-1. Download `DSH-Launcher.exe` from [Releases](../../releases), or build it yourself (see below)
-2. Double-click to run
-3. On first use, click **Install DSH** (or make sure DSH is already installed globally / cached via npx)
-4. Click **Start**, the browser opens `http://127.0.0.1:3080` automatically once ready
+## 🚀 Usage Instructions
+1. Download `DSH-Launcher.exe` from [Releases](../../releases), or compile the executable manually following the guide below.
+2. Double-click the file to launch the launcher.
+3. Click **Install DSH** on your first launch (or confirm DSH is available via npx cache or global installation).
+4. Click **One-Click Start**. Once the service is ready, your browser will automatically open and navigate to `http://127.0.0.1:3080`.
 
-> Note: when closing the launcher while DSH is still running, a dialog asks whether to stop it too.
+> Tip: If you close the launcher window while DSH is still running, a popup prompt will ask whether you want to stop the DSH service as well.
 
-## 🔨 Build
+<br>
 
-No Visual Studio or SDK required — use the built-in .NET Framework 4.0 compiler (`csc.exe`).
+## 🔨 Build Guide
+You do not need Visual Studio or any extra SDK. The built-in .NET Framework 4.0 compiler `csc.exe` on Windows can complete compilation.
 
-### Option 1: one-click build
+<br>
 
+### Option 1: One-Click Build
 ```bat
 build.bat
 ```
 
-### Option 2: manual build
+<br>
+
+### Option 2: Manual compile
 
 ```bat
 C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe ^
@@ -60,52 +74,61 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe ^
   DshLauncher.cs
 ```
 
-> For 32-bit systems, replace `Framework64` with `Framework`.
+> For 32‑bit Windows, replace `Framework64` with `Framework` in all file paths.
 
-## 🤖 GitHub Actions
+<br>
 
-This repo includes a workflow (`.github/workflows/build.yml`) that automatically builds the EXE on every push and uploads it as an artifact. When you push a `v*` tag (e.g. `v1.0.0`), it also creates a GitHub Release with the EXE attached and auto-generated release notes.
-
-### How to release
+### Cut a new release
 
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-The workflow builds `DSH-Launcher.exe` and publishes it to a new Release automatically.
+After pushing the tag to remote repository, the CI workflow will automatically compile `DSH-Launcher.exe` and attach it to a new GitHub Release.
 
-## ⚙️ How it works
+<br>
 
-| Action | Implementation |
-|------|------|
-| Start | Prefer global `dsh web`, fallback to `npx --yes @deepseek-ai/dsh web` |
-| Stop | WMI scans node processes with `deepseek-ai` in the command line + `netstat` finds the process on port 3080, then `taskkill /F /T` |
-| Detect | `node -v` / `npm -v` / `npm config get prefix|cache` / port 3080 connectivity |
-| Port | Default `127.0.0.1:3080` |
-| Collision diagnosis | Captures `dsh web` output, regex-matches service-name collisions, resolves owner/claimant package names, and shows a dialog with one-click uninstall |
+## ⚙️ How It Works
 
-## 📁 Project structure
+| Action | Implementation Details |
+| --- | --- |
+| Start | Prefer globally installed `dsh web`; fallback to `npx --yes @deepseek‑ai/dsh web`. |
+| Stop | Use WMI to scan node processes whose command line contains `deepseek‑ai`, pair with netstat to locate processes bound to port 3080, then execute `taskkill /F /T` for forced termination. |
+| Environment Check | Run `node -v` / `npm -v` / `npm config get prefix\|cache` / port 3080 connectivity check |
+| Listening Port | Default: `127.0.0.1:3080` |
+| Conflict Diagnosis | Capture runtime output from `dsh web`. Use regex to identify Cordis service‑name collision, parse conflicting package names, display pop‑up alert with one‑click uninstall options. |
+
+<br>
+
+## 📁 Repository Structure
 
 ```
-├── .github/workflows/build.yml   # CI: build + release
-├── DshLauncher.cs                # full source (single file)
-├── icon.ico                      # app icon
-├── build.bat                     # one-click build script
-├── CHANGELOG.md                  # release notes
-├── README.md                     # 中文文档 (Chinese)
-├── readmeEN.md                   # English docs (this file)
-├── patches/                      # bundled DSH patches
+├── .github/workflows/build.yml   # Automated build & release workflow
+├── DshLauncher.cs                # Full source code
+├── icon.ico                      # Application icon
+├── build.bat                     # One‑click build script
+├── CHANGELOG.md                  # Version changelog
+├── README.md                     # Chinese documentation
+├── readmeEN.md                   # English documentation (this file)
+├── patches/                      # Supplementary DSH patch files
 └── .gitignore
 ```
 
-## 🔧 FAQ
+<br>
 
-- **"Node.js not detected"**: install [Node.js](https://nodejs.org/) first.
-- **Browser still opens after "Stop"**: normal — refresh the page and it becomes unavailable.
-- **Icon not showing**: make sure `icon.ico` is in the same directory when building.
-- **"Plugin service collision" on startup**: two plugins registered the same Cordis service (commonly `pet`). Uninstall one of them as prompted; see the DSH patch at `patches/dsh-cordis-service-collision-message.patch`.
+## 🔧 Troubleshooting
 
-## 📄 License
+- **Node.js not detected**: Install [Node.js](https://nodejs.org/) first.
+- **Browser page still accessible after clicking Stop Service**: Expected behavior. Refresh your browser and the service will be unreachable.
+- **Icon missing**: Ensure `icon.ico` sits in the same directory as source files during compilation.
+- **Launch fails with "plugin service conflict"**: Two plugins register identical Cordis service names (common example: `pet`). Uninstall one of the conflicting packages following the pop‑up instructions. Corresponding DSH error‑message improvement patch is available at `patches/dsh‑cordis‑service‑collision‑message.patch`.
 
-MIT
+  
+
+<br>
+<div align="center">
+
+**MIT License**
+
+</div>

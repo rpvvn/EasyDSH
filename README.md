@@ -32,12 +32,15 @@
 
 <br>
 
+
 ## 📋 环境依赖
 
 | 依赖 | 说明 |
 |------|------|
 | Windows 7+ | 需 .NET Framework 4.0+（Windows 10/11 已自带） |
 | Node.js | 含 npm，用于运行 / 安装 DSH |
+
+<br>
 
 ## 🚀 使用方法
 
@@ -48,15 +51,21 @@
 
 > 提示：关闭启动器窗口时，若 DSH 仍在运行会弹窗询问是否一并停止。
 
+<br>
+
 ## 🔨 编译
 
 无需安装 Visual Studio 或任何 SDK，Windows 自带的 .NET Framework 4.0 编译器（`csc.exe`）即可编译。
+
+<br>
 
 ### 方式一：一键编译
 
 ```bat
 build.bat
 ```
+
+<br>
 
 ### 方式二：手动编译
 
@@ -86,6 +95,8 @@ git push origin v1.0.0
 
 推送后，工作流会自动编译 `DSH-Launcher.exe` 并发布到新的 Release。
 
+<br>
+
 ## ⚙️ 工作原理
 
 | 动作 | 实现 |
@@ -95,6 +106,8 @@ git push origin v1.0.0
 | 检测 | `node -v` / `npm -v` / `npm config get prefix|cache` / 端口 3080 连通性检测 |
 | 端口 | 默认 `127.0.0.1:3080` |
 | 冲突诊断 | 捕捉 `dsh web` 输出，正则识别服务名冲突，解析占用方/冲突方包名，弹窗并提供一键卸载 |
+
+<br>
 
 ## 📁 目录结构
 
@@ -109,6 +122,7 @@ git push origin v1.0.0
 ├── patches/                      # 附带的 DSH 补丁
 └── .gitignore
 ```
+<br>
 
 ## 🔧 常见问题
 
@@ -117,10 +131,11 @@ git push origin v1.0.0
 - **图标不显示**：编译时确保 `icon.ico` 与源码在同一目录。
 - **启动失败提示「插件服务冲突」**：两个插件注册了同名 Cordis 服务（常见如 `pet`）。按弹窗提示卸载其中一方即可；对应的 DSH 报错改进补丁见 `patches/dsh-cordis-service-collision-message.patch`。
 
-<div align="center">
 
-## 📄 许可证
+<br>
+<div align="center">
 
 **MIT License**
 
 <div align="center">
+

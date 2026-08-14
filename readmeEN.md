@@ -5,14 +5,9 @@
 <br>
 
 # DSH One-Click Launcher
+
+**Skip manual CLI commands: One-click lightweight launcher for DeepSeek DSH**
 > 🌐 Language: [简体中文](README.md) · **English**
-
-A single-file, portable Windows GUI utility<br>
-for starting, restarting and stopping the **DSH (DeepSeek Harness)** web service.<br>
-It saves you the trouble of manually entering `npx @deepseek-ai/dsh web` every time.<br>
-Built on **WPF (.NET Framework 4.0)** with vector-rendered UI.<br>
-No third-party dependencies required — double-click to run directly.
-
 ---
 </div>
 

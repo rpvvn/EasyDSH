@@ -5,14 +5,9 @@
 <br>
 
 # DSH 一键启动器
+**谁TM输命令启动！快捷小工具一键搞定大肥鱼DSH**<br>
 
-> 🌐 语言 / Language：[English](readmeEN.md) · **简体中文**
-
-一个单文件、绿色便携的 Windows GUI 小工具<br>
-用于启动、重启、停止 **DSH（DeepSeek Harness）** Web 服务<br>
-省去每次手动输入 `npx @deepseek-ai/dsh web` 的麻烦<br>
-基于 **WPF**（.NET Framework 4.0）构建，矢量渲染界面
-无需任何第三方依赖，双击即用
+> 🌐 [English](readmeEN.md) · **简体中文**
 
 ---
 

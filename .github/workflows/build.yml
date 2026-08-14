@@ -15,6 +15,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Diagnose toolchain
+        shell: cmd
+        run: |
+          echo === csc.exe ===
+          dir "%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" 2>&1
+          echo === WPF PresentationCore ===
+          dir "%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\PresentationCore.dll" 2>&1
+          echo === working files ===
+          dir 2>&1
+
       - name: Build EXE
         shell: cmd
         run: build.bat

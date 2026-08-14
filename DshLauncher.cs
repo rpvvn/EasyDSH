@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Management;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
@@ -64,6 +65,21 @@ namespace DshLauncherWpf
         private string _dshCmd = "";
 
         private static readonly Regex AnsiRegex = new Regex("\x1b\\[[0-9;?]*[ -/]*[@-~]");
+
+        // 服务占用冲突识别：运行时捕捉 DSH 原始报错并重新提示
+        private static readonly Regex CollisionOriginalRegex = new Regex(
+            @"service\s+""(?<service>[^""]+)""\s+has\s+been\s+registered\s+at\s+<(?<owner>[^>]+)>",
+            RegexOptions.Compiled);
+        private static readonly Regex CollisionImprovedRegex = new Regex(
+            @"service\s+""(?<service>[^""]+)""\s+is\s+already\s+provided\s+by\s+""(?<owner>[^""]+)""",
+            RegexOptions.Compiled);
+        private static readonly Regex LoaderEntryRegex = new Regex(
+            @"failed\s+to\s+apply\s+loader\s+entry\s+(?<id>[^\s(]+)(?:\s*\((?<name>[^)]*)\))?",
+            RegexOptions.Compiled);
+
+        private readonly object _collisionLock = new object();
+        private CollisionInfo _collision;
+        private int _collisionPrompted;
 
         public MainWindow()
         {
@@ -488,6 +504,8 @@ namespace DshLauncherWpf
         // ------------------------------------------------------------------
         private void StartDshThread()
         {
+            lock (_collisionLock) { _collision = null; }
+            Interlocked.Exchange(ref _collisionPrompted, 0);
             RunOnUi(delegate
             {
                 _btnStart.IsEnabled = false;
@@ -507,11 +525,11 @@ namespace DshLauncherWpf
                 p = new Process { StartInfo = psi };
                 p.OutputDataReceived += delegate(object s, DataReceivedEventArgs e)
                 {
-                    if (e.Data != null) AppendLog(CleanAnsi(e.Data));
+                    if (e.Data != null) CaptureOutput(CleanAnsi(e.Data));
                 };
                 p.ErrorDataReceived += delegate(object s, DataReceivedEventArgs e)
                 {
-                    if (e.Data != null) AppendLog(CleanAnsi(e.Data));
+                    if (e.Data != null) CaptureOutput(CleanAnsi(e.Data));
                 };
                 p.Start();
                 p.BeginOutputReadLine();
@@ -779,6 +797,358 @@ namespace DshLauncherWpf
         }
 
         // ------------------------------------------------------------------
+        // 服务冲突诊断：运行时捕捉 DSH 报错并重新提示
+        // ------------------------------------------------------------------
+        private void CaptureOutput(string line)
+        {
+            AppendLog(line);
+            DetectCollision(line);
+        }
+
+        private void DetectCollision(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+
+            bool fire = false;
+            lock (_collisionLock)
+            {
+                if (_collision == null)
+                {
+                    Match m = CollisionOriginalRegex.Match(line);
+                    if (!m.Success) m = CollisionImprovedRegex.Match(line);
+                    if (m.Success)
+                    {
+                        _collision = new CollisionInfo
+                        {
+                            Service = m.Groups["service"].Value,
+                            OwnerId = m.Groups["owner"].Value
+                        };
+                    }
+                }
+
+                if (_collision != null && string.IsNullOrEmpty(_collision.ClaimantName))
+                {
+                    Match lm = LoaderEntryRegex.Match(line);
+                    if (lm.Success)
+                    {
+                        _collision.ClaimantId = lm.Groups["id"].Value;
+                        _collision.ClaimantName = lm.Groups["name"].Value;
+                        if (string.IsNullOrEmpty(_collision.ClaimantName))
+                            _collision.ClaimantName = _collision.ClaimantId;
+                    }
+                }
+
+                fire = _collision != null && !string.IsNullOrEmpty(_collision.Service);
+            }
+
+            if (fire) ShowCollisionPromptOnce(_collision);
+        }
+
+        private void ShowCollisionPromptOnce(CollisionInfo info)
+        {
+            if (Interlocked.Exchange(ref _collisionPrompted, 1) != 0) return;
+
+            try { info.OwnerName = ResolveEntryPackageName(info.OwnerId); }
+            catch { }
+            string removableOwner = ResolveRemovableOwner(info.OwnerName);
+
+            string ownerDisplay = string.IsNullOrEmpty(info.OwnerName)
+                ? ("条目 " + info.OwnerId)
+                : (!string.IsNullOrEmpty(removableOwner) && !string.Equals(removableOwner, info.OwnerName, StringComparison.OrdinalIgnoreCase)
+                    ? (info.OwnerName + "（由 " + removableOwner + " 引入）")
+                    : info.OwnerName);
+            string claimantDisplay = string.IsNullOrEmpty(info.ClaimantName)
+                ? (string.IsNullOrEmpty(info.ClaimantId) ? "未知插件" : info.ClaimantId)
+                : info.ClaimantName;
+            string removeClaimant = string.IsNullOrEmpty(info.ClaimantName) ? info.ClaimantId : info.ClaimantName;
+
+            var sb = new StringBuilder();
+            sb.AppendLine("服务名 \"" + info.Service + "\" 被两个插件重复注册：");
+            sb.AppendLine();
+            sb.AppendLine("  · 已占用（先注册方）：" + ownerDisplay);
+            sb.AppendLine("  · 冲突插件：" + claimantDisplay);
+            sb.AppendLine();
+            sb.AppendLine("原因：Cordis 服务名是全局唯一的，同名服务只能有一个提供者。");
+            sb.AppendLine();
+            sb.AppendLine("请选择卸载其中一方（卸载后需重启服务）：");
+            if (!string.IsNullOrEmpty(removableOwner))
+                sb.AppendLine("  · 「卸载占用方」将移除 " + removableOwner);
+            if (!string.IsNullOrEmpty(removeClaimant))
+                sb.AppendLine("  · 「卸载冲突方」将移除 " + removeClaimant);
+            string msg = sb.ToString();
+
+            foreach (string l in msg.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
+                AppendLog("【诊断】" + l);
+
+            RunOnUi(delegate { ShowCollisionDialog(info, msg, removableOwner); });
+            SetStatus("启动失败：插件服务冲突");
+        }
+
+        private void ShowCollisionDialog(CollisionInfo info, string msg, string removableOwner)
+        {
+            var dlg = new Window
+            {
+                Title = "DSH 启动失败：插件服务冲突",
+                Width = 540,
+                SizeToContent = SizeToContent.Height,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                ResizeMode = ResizeMode.NoResize,
+                Background = PanelBackBrush,
+                FontFamily = new FontFamily("Microsoft YaHei UI"),
+                FontSize = 13
+            };
+
+            var grid = new Grid { Margin = new Thickness(18) };
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var txt = new TextBlock
+            {
+                Text = msg,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 16),
+                Foreground = new SolidColorBrush(Color.FromRgb(40, 44, 52))
+            };
+            grid.Children.Add(txt);
+
+            var btnPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            Grid.SetRow(btnPanel, 1);
+            grid.Children.Add(btnPanel);
+
+            string removeClaimant = string.IsNullOrEmpty(info.ClaimantName) ? info.ClaimantId : info.ClaimantName;
+            if (!string.IsNullOrEmpty(removeClaimant))
+            {
+                var btnClaimant = MakeButton("卸载冲突方", 110, Color.FromRgb(198, 60, 60));
+                btnClaimant.Click += delegate
+                {
+                    dlg.Close();
+                    StartRemovePlugin(removeClaimant);
+                };
+                btnPanel.Children.Add(btnClaimant);
+            }
+
+            if (!string.IsNullOrEmpty(removableOwner))
+            {
+                var btnOwner = MakeButton("卸载占用方", 110, Color.FromRgb(198, 60, 60));
+                btnOwner.Click += delegate
+                {
+                    dlg.Close();
+                    StartRemovePlugin(removableOwner);
+                };
+                btnPanel.Children.Add(btnOwner);
+            }
+
+            var btnLater = MakeButton("稍后处理", 96, Color.FromRgb(88, 88, 96));
+            btnLater.Click += delegate { dlg.Close(); };
+            btnPanel.Children.Add(btnLater);
+
+            dlg.Content = grid;
+            dlg.ShowDialog();
+        }
+
+        private void StartRemovePlugin(string package)
+        {
+            if (string.IsNullOrEmpty(package)) return;
+            AppendLog("准备卸载：" + package);
+            SetStatus("正在卸载 " + package + " ...");
+            Thread t = new Thread(() => RemovePluginThread(package));
+            t.IsBackground = true;
+            t.Start();
+        }
+
+        private void RemovePluginThread(string package)
+        {
+            string args = _dshGlobal
+                ? "/c \"" + _dshCmd + "\" plugin --profile web remove " + package
+                : "/c npx --yes " + PackageName + " plugin --profile web remove " + package;
+            string cmdDisplay = _dshGlobal
+                ? (_dshCmd + " plugin --profile web remove " + package)
+                : ("npx " + PackageName + " plugin --profile web remove " + package);
+            AppendLog("执行：" + cmdDisplay);
+
+            string output;
+            int code = RunSync("cmd.exe", args, out output);
+            if (!string.IsNullOrEmpty(output))
+            {
+                foreach (string line in output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
+                    AppendLog(line);
+            }
+
+            if (code == 0)
+            {
+                AppendLog("已成功卸载 " + package + "。");
+                RunOnUi(delegate
+                {
+                    MessageBoxResult r = MessageBox.Show(
+                        "已成功卸载 " + package + "。\r\n\r\n是否立即重启服务？",
+                        "卸载完成", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (r == MessageBoxResult.Yes)
+                    {
+                        _restarting = true;
+                        Thread t = new Thread(RestartDshThread);
+                        t.IsBackground = true;
+                        t.Start();
+                    }
+                    else
+                    {
+                        SetStatus("已卸载 " + package + "，可点击「重启服务」");
+                    }
+                });
+            }
+            else
+            {
+                AppendLog("卸载失败，退出码 " + code + "，请查看上方日志。");
+                SetStatus("卸载失败");
+            }
+        }
+
+        private string ResolveEntryPackageName(string entryId)
+        {
+            if (string.IsNullOrEmpty(entryId)) return null;
+            try
+            {
+                string profileDir = GetWebProfileDir();
+                if (profileDir == null) return null;
+                string nmDir = System.IO.Path.Combine(profileDir, "node_modules");
+                if (!Directory.Exists(nmDir)) return null;
+
+                foreach (string pkgDir in EnumeratePackageDirs(nmDir))
+                {
+                    string patch = System.IO.Path.Combine(pkgDir, "cordis.patch.yml");
+                    if (!File.Exists(patch)) continue;
+                    string name = FindEntryNameInPatch(patch, entryId);
+                    if (!string.IsNullOrEmpty(name)) return name;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        private static string ResolveRemovableOwner(string ownerPackage)
+        {
+            if (string.IsNullOrEmpty(ownerPackage)) return null;
+            try
+            {
+                string profileDir = GetWebProfileDir();
+                if (profileDir == null) return null;
+                string manifest = System.IO.Path.Combine(profileDir, "package.json");
+                if (!File.Exists(manifest)) return null;
+
+                var directDeps = ReadDependencyNames(File.ReadAllText(manifest));
+                if (directDeps.Count == 0) return null;
+
+                if (directDeps.Contains(ownerPackage)) return ownerPackage;
+
+                var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (string dep in directDeps)
+                {
+                    visited.Clear();
+                    if (DependsOn(profileDir, dep, ownerPackage, visited, 0))
+                        return dep;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        private static List<string> ReadDependencyNames(string packageJson)
+        {
+            var result = new List<string>();
+            Match m = Regex.Match(packageJson, @"[""']dependencies[""']\s*:\s*\{([\s\S]*?)\}");
+            if (!m.Success) return result;
+            foreach (Match km in Regex.Matches(m.Groups[1].Value, @"[""']([^""']+)[""']\s*:"))
+                result.Add(km.Groups[1].Value);
+            return result;
+        }
+
+        private static bool DependsOn(string profileDir, string package, string target, HashSet<string> visited, int depth)
+        {
+            if (depth > 6 || string.IsNullOrEmpty(package)) return false;
+            if (!visited.Add(package)) return false;
+
+            string pkgJson = ResolvePackageJsonPath(profileDir, package);
+            if (pkgJson == null || !File.Exists(pkgJson)) return false;
+
+            string json;
+            try { json = File.ReadAllText(pkgJson); }
+            catch { return false; }
+
+            foreach (string dep in ReadDependencyNames(json))
+            {
+                if (string.Equals(dep, target, StringComparison.OrdinalIgnoreCase)) return true;
+                if (DependsOn(profileDir, dep, target, visited, depth + 1)) return true;
+            }
+            return false;
+        }
+
+        private static string ResolvePackageJsonPath(string profileDir, string package)
+        {
+            string nmDir = System.IO.Path.Combine(profileDir, "node_modules");
+            if (package.StartsWith("@", StringComparison.Ordinal))
+            {
+                int slash = package.IndexOf('/');
+                if (slash > 0)
+                    return System.IO.Path.Combine(nmDir, package.Substring(0, slash), package.Substring(slash + 1), "package.json");
+            }
+            return System.IO.Path.Combine(nmDir, package, "package.json");
+        }
+
+        private static string GetWebProfileDir()
+        {
+            string home = Environment.GetEnvironmentVariable("DSH_HOME");
+            if (string.IsNullOrEmpty(home))
+                home = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".dsh");
+            return System.IO.Path.Combine(home, "profiles", "web");
+        }
+
+        private static IEnumerable<string> EnumeratePackageDirs(string nodeModulesDir)
+        {
+            string[] top;
+            try { top = Directory.GetDirectories(nodeModulesDir); }
+            catch { yield break; }
+            foreach (string dir in top)
+            {
+                string name = System.IO.Path.GetFileName(dir);
+                if (name.StartsWith("@", StringComparison.Ordinal))
+                {
+                    string[] subs;
+                    try { subs = Directory.GetDirectories(dir); }
+                    catch { continue; }
+                    foreach (string sub in subs) yield return sub;
+                }
+                else
+                {
+                    yield return dir;
+                }
+            }
+        }
+
+        private static string FindEntryNameInPatch(string patchFile, string entryId)
+        {
+            string[] lines;
+            try { lines = File.ReadAllLines(patchFile); }
+            catch { return null; }
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (Regex.IsMatch(lines[i], @"^\s*-\s+id\s*:\s*(['""]?)" + Regex.Escape(entryId) + @"\1\s*$"))
+                {
+                    for (int j = i + 1; j < lines.Length && j <= i + 4; j++)
+                    {
+                        if (Regex.IsMatch(lines[j], @"^\s*-\s+id\s*:")) break;
+                        Match m = Regex.Match(lines[j], @"^\s*name\s*:\s*['""]?(?<name>[^'""\r\n]+)['""]?\s*$");
+                        if (m.Success) return m.Groups["name"].Value.Trim();
+                    }
+                }
+            }
+            return null;
+        }
+
+        // ------------------------------------------------------------------
         // 工具方法
         // ------------------------------------------------------------------
         private static int RunSync(string fileName, string args, out string output)
@@ -939,6 +1309,15 @@ namespace DshLauncherWpf
                 }
             }
             base.OnClosing(e);
+        }
+
+        private sealed class CollisionInfo
+        {
+            public string Service;
+            public string OwnerId;
+            public string OwnerName;
+            public string ClaimantId;
+            public string ClaimantName;
         }
     }
 

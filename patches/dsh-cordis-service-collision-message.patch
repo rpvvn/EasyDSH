@@ -1,0 +1,18 @@
+diff --git a/node_modules/@deepseek-ai/cordis/lib/index.js b/node_modules/@deepseek-ai/cordis/lib/index.js
+--- a/node_modules/@deepseek-ai/cordis/lib/index.js
++++ b/node_modules/@deepseek-ai/cordis/lib/index.js
+@@ -809,7 +809,13 @@ var ReflectService = class {
+ 				fiber: this.ctx.fiber,
+ 				check
+ 			};
+-			if (this.store[key]) throw new Error(`service "${name}" has been registered at <${this.store[key].fiber.name}>`);
++			if (this.store[key]) {
++				const owner = this.store[key].fiber;
++				const claimant = this.ctx.fiber;
++				const ownerName = owner.entry?.options?.name ?? owner.name;
++				const claimantName = claimant.entry?.options?.name ?? claimant.name;
++				throw new Error(`service "${name}" is already provided by "${ownerName}"; "${claimantName}" tried to register the same service — a service name can only have one provider, remove one of these two plugins`);
++			}
+ 			this.store[key] = impl;
+ 			this.ctx.fiber.store[name] = impl;
+ 			if (this.ctx.fiber.state === 2) this.notify([name]);

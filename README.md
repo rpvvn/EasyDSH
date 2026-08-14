@@ -17,6 +17,7 @@
 - 🔍 **环境检测**：实时展示 Node.js / npm / DSH（全局 / npx 缓存）/ 服务端口状态，彩色圆点卡片
 - 🎨 **WPF 矢量界面**：圆角按钮、彩色状态卡片、悬停高亮
 - 📦 **单文件绿色版**：无需安装、无需配置文件，可放入 U 盘随处运行
+- 🛡 **服务冲突诊断**：启动失败时自动识别「插件服务名冲突」，弹窗说明谁占用、谁冲突，并可一键卸载其中一方
 
 ## 📋 环境依赖
 
@@ -82,6 +83,7 @@ git push origin v1.0.0
 | 停止 | WMI 扫描命令行含 `deepseek-ai` 的 node 进程 + `netstat` 找 3080 端口进程，`taskkill /F /T` 强制结束 |
 | 检测 | `node -v` / `npm -v` / `npm config get prefix|cache` / 端口 3080 连通性检测 |
 | 端口 | 默认 `127.0.0.1:3080` |
+| 冲突诊断 | 捕捉 `dsh web` 输出，正则识别服务名冲突，解析占用方/冲突方包名，弹窗并提供一键卸载 |
 
 ## 📁 目录结构
 
@@ -93,6 +95,7 @@ git push origin v1.0.0
 ├── CHANGELOG.md                  # 更新说明
 ├── README.md                     # 中文文档（本文档）
 ├── readmeEN.md                   # 英文文档
+├── patches/                      # 附带的 DSH 补丁
 └── .gitignore
 ```
 
@@ -101,6 +104,7 @@ git push origin v1.0.0
 - **提示「未检测到 Node.js」**：请先安装 [Node.js](https://nodejs.org/)。
 - **点「停止服务」后浏览器仍能打开**：属正常现象，刷新页面后即失效。
 - **图标不显示**：编译时确保 `icon.ico` 与源码在同一目录。
+- **启动失败提示「插件服务冲突」**：两个插件注册了同名 Cordis 服务（常见如 `pet`）。按弹窗提示卸载其中一方即可；对应的 DSH 报错改进补丁见 `patches/dsh-cordis-service-collision-message.patch`。
 
 ## 📄 许可证
 

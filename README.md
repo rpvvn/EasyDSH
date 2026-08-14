@@ -8,7 +8,9 @@
 
 > 🌐 语言 / Language：[English](readmeEN.md) · **简体中文**
 
-一个单文件、绿色便携的 Windows GUI 小工具，用于启动、重启、停止 **DSH（DeepSeek Harness）** Web 服务，省去每次手动输入 `npx @deepseek-ai/dsh web` 的麻烦。
+一个单文件、绿色便携的 Windows GUI 小工具
+用于启动、重启、停止 **DSH（DeepSeek Harness）** Web 服务
+省去每次手动输入 `npx @deepseek-ai/dsh web` 的麻烦。
 
 基于 **WPF**（.NET Framework 4.0）构建，矢量渲染界面，无需任何第三方依赖，双击即用。
 
@@ -72,9 +74,7 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe ^
 
 > 32 位系统请把路径中的 `Framework64` 替换为 `Framework`。
 
-## 🤖 GitHub Actions 自动编译
 
-本仓库包含 GitHub Actions 工作流（`.github/workflows/build.yml`），每次 push 会自动编译 EXE 并上传为构建产物；当你推送 `v*` 标签（如 `v1.0.0`）时，还会自动创建 GitHub Release，附带 EXE 并自动生成更新说明。
 
 ### 如何发布版本
 

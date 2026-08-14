@@ -14,6 +14,8 @@
 
 ---
 
+</div>
+
 ## ✨ 功能特性
 
 - 🚀 **一键启动**：自动检测环境并后台启动 DSH Web 服务，服务就绪后自动打开浏览器
@@ -114,8 +116,11 @@ git push origin v1.0.0
 - **图标不显示**：编译时确保 `icon.ico` 与源码在同一目录。
 - **启动失败提示「插件服务冲突」**：两个插件注册了同名 Cordis 服务（常见如 `pet`）。按弹窗提示卸载其中一方即可；对应的 DSH 报错改进补丁见 `patches/dsh-cordis-service-collision-message.patch`。
 
+<div align="center">
+
 ## 📄 许可证
 
-MIT
+**MIT License**
 
-</div>
+<div align="center">
+

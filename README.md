@@ -131,7 +131,12 @@ git push origin v1.0.0
 <br>
 <div align="center">
 
-**MIT License**
+### 社区支持 [Linux.do](https://linux.do)
+</div>
 
 <div align="center">
+
+**MIT License**
+</div>
+
 

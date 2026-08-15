@@ -125,6 +125,11 @@ After pushing the tag to remote repository, the CI workflow will automatically c
 <br>
 <div align="center">
 
-**MIT License**
-
+### Community [Linux.do](https://linux.do)
 </div>
+
+<div align="center">
+
+**MIT License**
+</div>
+

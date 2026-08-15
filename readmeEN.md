@@ -23,7 +23,7 @@
 - 🔌 **Flexible Close**: When closing the window, choose "Stop & Close" or "Close Window Only" to keep the DSH service running in the background without force-stopping it.
 - 🚫 **Single Instance**: Detect an already-running instance at startup and show "Already running — please do not run it again", then exit to prevent duplicate launches.
 
-<br>
+---
 
 ## 📋 Prerequisites
 | Dependency | Description |
@@ -31,7 +31,7 @@
 | Windows 7 or later | Requires .NET Framework 4.0 or higher (pre-installed on Windows 10 / 11) |
 | Node.js | Bundled with npm, required for installing and running DSH |
 
-<br>
+---
 
 ## 🚀 Usage Instructions
 1. Download `DSH-Launcher.exe` from [Releases](../../releases), or compile the executable manually following the guide below.
@@ -41,19 +41,19 @@
 
 > Tip: If you close the launcher window while DSH is still running, a popup prompt lets you choose between "Stop & Close", "Close Window Only" (the service keeps running in the background), or "Cancel".
 
-<br>
+---
 
 ## 🔨 Build Guide
 You do not need Visual Studio or any extra SDK. The built-in .NET Framework 4.0 compiler `csc.exe` on Windows can complete compilation.
 
-<br>
+---
 
 ### Option 1: One-Click Build
 ```bat
 build.bat
 ```
 
-<br>
+---
 
 ### Option 2: Manual compile
 
@@ -72,7 +72,7 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe ^
 
 > For 32‑bit Windows, replace `Framework64` with `Framework` in all file paths.
 
-<br>
+---
 
 ### Cut a new release
 
@@ -83,7 +83,7 @@ git push origin v1.0.0
 
 After pushing the tag to remote repository, the CI workflow will automatically compile `DSH-Launcher.exe` and attach it to a new GitHub Release.
 
-<br>
+---
 
 ## ⚙️ How It Works
 
@@ -95,7 +95,7 @@ After pushing the tag to remote repository, the CI workflow will automatically c
 | Listening Port | Default: `127.0.0.1:3080` |
 | Conflict Diagnosis | Capture runtime output from `dsh web`. Use regex to identify Cordis service‑name collision, parse conflicting package names, display pop‑up alert with one‑click uninstall options. |
 
-<br>
+---
 
 ## 📁 Repository Structure
 
@@ -111,7 +111,7 @@ After pushing the tag to remote repository, the CI workflow will automatically c
 └── .gitignore
 ```
 
-<br>
+---
 
 ## 🔧 Troubleshooting
 
@@ -122,7 +122,7 @@ After pushing the tag to remote repository, the CI workflow will automatically c
 
   
 
-<br>
+---
 <div align="center">
 
 ### Community [Linux.do](https://linux.do)

@@ -26,8 +26,8 @@
 - 🔌 **灵活关闭**：关闭窗口时可选择「停止并关闭」或「仅关闭窗口」，让 DSH 服务继续后台运行而不强制停止
 - 🚫 **单实例运行**：启动时自动检测，若已有实例在运行则提示「已经运行，请勿重复运行」并自动退出
 
-<br>
 
+---
 
 ## 📋 环境依赖
 
@@ -36,7 +36,7 @@
 | Windows 7+ | 需 .NET Framework 4.0+（Windows 10/11 已自带） |
 | Node.js | 含 npm，用于运行 / 安装 DSH |
 
-<br>
+---
 
 ## 🚀 使用方法
 
@@ -47,13 +47,13 @@
 
 > 提示：关闭启动器窗口时，若 DSH 仍在运行会弹窗询问——可选择「停止并关闭」「仅关闭窗口」（服务继续后台运行）或「取消」。
 
-<br>
+---
 
 ## 🔨 编译
 
 无需安装 Visual Studio 或任何 SDK，Windows 自带的 .NET Framework 4.0 编译器（`csc.exe`）即可编译。
 
-<br>
+---
 
 ### 方式一：一键编译
 
@@ -61,7 +61,7 @@
 build.bat
 ```
 
-<br>
+---
 
 ### 方式二：手动编译
 
@@ -91,7 +91,7 @@ git push origin v1.0.0
 
 推送后，工作流会自动编译 `DSH-Launcher.exe` 并发布到新的 Release。
 
-<br>
+---
 
 ## ⚙️ 工作原理
 
@@ -103,7 +103,9 @@ git push origin v1.0.0
 | 端口 | 默认 `127.0.0.1:3080` |
 | 冲突诊断 | 捕捉 `dsh web` 输出，正则识别服务名冲突，解析占用方/冲突方包名，弹窗并提供一键卸载 |
 
-<br>
+
+---
+
 
 ## 📁 目录结构
 
@@ -118,7 +120,7 @@ git push origin v1.0.0
 ├── patches/                      # 附带的 DSH 补丁
 └── .gitignore
 ```
-<br>
+---
 
 ## 🔧 常见问题
 
@@ -128,7 +130,7 @@ git push origin v1.0.0
 - **启动失败提示「插件服务冲突」**：两个插件注册了同名 Cordis 服务（常见如 `pet`）。按弹窗提示卸载其中一方即可；对应的 DSH 报错改进补丁见 `patches/dsh-cordis-service-collision-message.patch`。
 
 
-<br>
+---
 <div align="center">
 
 ### 社区支持 [Linux.do](https://linux.do)

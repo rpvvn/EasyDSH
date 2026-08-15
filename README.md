@@ -114,7 +114,7 @@ git push origin v1.0.0
 ├── DshLauncher.cs                # 全部源码
 ├── icon.ico                      # 应用图标
 ├── build.bat                     # 一键编译脚本
-├── CHANGELOG.md                  # 更新说明
+├── UpdateLog.md                  # 更新说明（Release notes）
 ├── README.md                     # 中文文档（本文档）
 ├── readmeEN.md                   # 英文文档
 ├── patches/                      # 附带的 DSH 补丁

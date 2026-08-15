@@ -105,7 +105,7 @@ After pushing the tag to remote repository, the CI workflow will automatically c
 ├── DshLauncher.cs                # Full source code
 ├── icon.ico                      # Application icon
 ├── build.bat                     # One‑click build script
-├── CHANGELOG.md                  # Version changelog
+├── UpdateLog.md                  # Version changelog (Release notes)
 ├── README.md                     # Chinese documentation
 ├── readmeEN.md                   # English documentation (this file)
 ├── patches/                      # Supplementary DSH patch files

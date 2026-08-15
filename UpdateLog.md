@@ -6,6 +6,20 @@ All notable changes to this project will be documented in this file, which is al
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-08-16
+
+### Added
+
+- 新增一些BUG
+
+### Changed
+
+- 提升交互感，重构页面语言逻辑
+
+### Fixed
+
+- 修复了一些bug
+
 ## [2.0.0] - 2026-08-15
 
 ### Added

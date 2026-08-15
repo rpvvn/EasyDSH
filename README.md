@@ -32,9 +32,20 @@
 
 <div align="center">
 
-## 主界面
+## 界面展示
 
-<img src="docs/main_ui.jpg" alt="UI" width="100%">
+<img src="docs/main_ui.jpg" alt="UI" width="60%">
+
+--- 
+<img src="docs/doctor.jpg" alt="UI" width="55%">
+<img src="docs/node_down.jpg" alt="UI" width="40%">
+
+---
+<img src="docs/proxy_switch.jpg" alt="UI" width="30%">
+<img src="docs/doctor.jpg" alt="UI" width="60%">
+
+---
+<img src="docs/UpdateDSH.jpg" alt="UI" width="60%">
 
 
 ---

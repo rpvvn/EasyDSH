@@ -154,7 +154,7 @@ namespace DshLauncherWpf
                 if (aboutHoldTimer == null)
                 {
                     aboutHoldTimer = new DispatcherTimer();
-                    aboutHoldTimer.Interval = TimeSpan.FromSeconds(1.5);
+                    aboutHoldTimer.Interval = TimeSpan.FromSeconds(1.9);
                     aboutHoldTimer.Tick += delegate
                     {
                         aboutHoldTimer.Stop();
@@ -170,7 +170,7 @@ namespace DshLauncherWpf
             {
                 if (aboutHoldTimer != null) aboutHoldTimer.Stop();
             };
-            _btnAbout.Click += delegate(object s, RoutedEventArgs e)
+            _btnAbout.Click += delegate (object s, RoutedEventArgs e)
             {
                 if (aboutLongPressed)
                 {
@@ -188,14 +188,12 @@ namespace DshLauncherWpf
                 if (checkHoldTimer == null)
                 {
                     checkHoldTimer = new DispatcherTimer();
-                    checkHoldTimer.Interval = TimeSpan.FromSeconds(1.5);
+                    checkHoldTimer.Interval = TimeSpan.FromSeconds(1.8);
                     checkHoldTimer.Tick += delegate
                     {
                         checkHoldTimer.Stop();
                         checkLongPressed = true;
-                        var dlg = new UpdatePromptWindow("999.0.0", _dshVersion);
-                        dlg.Owner = this;
-                        dlg.ShowDialog();
+                        ShowCollisionDebugDialog();
                     };
                 }
                 checkHoldTimer.Start();
@@ -204,7 +202,7 @@ namespace DshLauncherWpf
             {
                 if (checkHoldTimer != null) checkHoldTimer.Stop();
             };
-            _btnCheck.Click += delegate(object s, RoutedEventArgs e)
+            _btnCheck.Click += delegate (object s, RoutedEventArgs e)
             {
                 if (checkLongPressed)
                 {
@@ -646,7 +644,7 @@ namespace DshLauncherWpf
 
         private void BtnMirror_Click(object sender, RoutedEventArgs e)
         {
-            Thread t = new Thread(delegate()
+            Thread t = new Thread(delegate ()
             {
                 string outp;
                 int code = RunSync("cmd.exe", "/c npm config set registry https://registry.npmmirror.com", out outp);
@@ -669,7 +667,7 @@ namespace DshLauncherWpf
 
         private void BtnCheckUpdate_Click(object sender, RoutedEventArgs e)
         {
-            Thread t = new Thread(delegate()
+            Thread t = new Thread(delegate ()
             {
                 string outp;
                 int code = RunSync("cmd.exe", "/c npm view @deepseek-ai/dsh version", out outp);
@@ -739,6 +737,25 @@ namespace DshLauncherWpf
             dlg.ShowDialog();
         }
 
+        private void ShowCollisionDebugDialog()
+        {
+            var info = new CollisionInfo
+            {
+                Service = "dsh:example.service",
+                OwnerId = "owner-entry",
+                OwnerName = "@test/owner-plugin",
+                ClaimantId = "claimant-entry",
+                ClaimantName = "@test/claimant-plugin"
+            };
+            string msg = "服务名 \"dsh:example.service\" 被两个插件重复注册：\r\n\r\n" +
+                "  · 后注册占用：@test/owner-plugin\r\n" +
+                "  · 本地冲突插件：@test/claimant-plugin\r\n\r\n" +
+                "请选择卸载其中一方（卸载后需重启服务）：\r\n" +
+                "  · 「卸载占用方」将移除 @test/owner-plugin\r\n" +
+                "  · 「卸载冲突方」将移除 @test/claimant-plugin";
+            ShowCollisionDialog(info, msg, "@test/owner-plugin");
+        }
+
         public void StartDshUpdate()
         {
             Thread t = new Thread(UpdateDshThread);
@@ -754,8 +771,8 @@ namespace DshLauncherWpf
             {
                 var p = new Process { StartInfo = psi };
                 p.Start();
-                ReadLinesUtf8Async(p.StandardOutput.BaseStream, delegate(string line) { AppendLog(CleanAnsi(line)); });
-                ReadLinesUtf8Async(p.StandardError.BaseStream, delegate(string line) { AppendLog(CleanAnsi(line)); });
+                ReadLinesUtf8Async(p.StandardOutput.BaseStream, delegate (string line) { AppendLog(CleanAnsi(line)); });
+                ReadLinesUtf8Async(p.StandardError.BaseStream, delegate (string line) { AppendLog(CleanAnsi(line)); });
                 p.WaitForExit();
                 int code = p.ExitCode;
                 if (code == 0)
@@ -798,8 +815,8 @@ namespace DshLauncherWpf
             {
                 var p = new Process { StartInfo = psi };
                 p.Start();
-                ReadLinesUtf8Async(p.StandardOutput.BaseStream, delegate(string line) { AppendLog(CleanAnsi(line)); });
-                ReadLinesUtf8Async(p.StandardError.BaseStream, delegate(string line) { AppendLog(CleanAnsi(line)); });
+                ReadLinesUtf8Async(p.StandardOutput.BaseStream, delegate (string line) { AppendLog(CleanAnsi(line)); });
+                ReadLinesUtf8Async(p.StandardError.BaseStream, delegate (string line) { AppendLog(CleanAnsi(line)); });
                 p.WaitForExit();
                 int code = p.ExitCode;
                 if (code == 0)
@@ -849,8 +866,8 @@ namespace DshLauncherWpf
             {
                 p = new Process { StartInfo = psi };
                 p.Start();
-                ReadLinesUtf8Async(p.StandardOutput.BaseStream, delegate(string line) { CaptureOutput(CleanAnsi(line)); });
-                ReadLinesUtf8Async(p.StandardError.BaseStream, delegate(string line) { CaptureOutput(CleanAnsi(line)); });
+                ReadLinesUtf8Async(p.StandardOutput.BaseStream, delegate (string line) { CaptureOutput(CleanAnsi(line)); });
+                ReadLinesUtf8Async(p.StandardError.BaseStream, delegate (string line) { CaptureOutput(CleanAnsi(line)); });
                 _dshProcess = p;
 
                 RunOnUi(delegate { _btnStop.IsEnabled = true; });
@@ -945,8 +962,8 @@ namespace DshLauncherWpf
             {
                 var p = new Process { StartInfo = psi };
                 p.Start();
-                ReadLinesUtf8Async(p.StandardOutput.BaseStream, delegate(string line) { AppendLog(CleanAnsi(line)); });
-                ReadLinesUtf8Async(p.StandardError.BaseStream, delegate(string line) { AppendLog(CleanAnsi(line)); });
+                ReadLinesUtf8Async(p.StandardOutput.BaseStream, delegate (string line) { AppendLog(CleanAnsi(line)); });
+                ReadLinesUtf8Async(p.StandardError.BaseStream, delegate (string line) { AppendLog(CleanAnsi(line)); });
                 p.WaitForExit();
                 int code = p.ExitCode;
 
@@ -1550,7 +1567,7 @@ namespace DshLauncherWpf
 
         private static void ReadLinesUtf8Async(Stream stream, Action<string> onLine)
         {
-            var t = new Thread(delegate() { ReadLinesUtf8(stream, onLine); });
+            var t = new Thread(delegate () { ReadLinesUtf8(stream, onLine); });
             t.IsBackground = true;
             t.Start();
         }

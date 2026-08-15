@@ -49,6 +49,7 @@ namespace DshLauncherWpf
         private Button _btnInstall;
         private Button _btnStop;
         private Button _btnMirror;
+        private Button _btnCheck;
         private Button _btnAbout;
         private TextBlock _lblStatus;
 
@@ -62,6 +63,7 @@ namespace DshLauncherWpf
         private bool _restarting;
         private string _nodeVersion = "";
         private string _npmVersion = "";
+        private string _dshVersion = "";
         private string _npmPrefix = "";
         private string _npmCache = "";
         private string _dshCmd = "";
@@ -115,15 +117,21 @@ namespace DshLauncherWpf
             var titleBar = new DockPanel { Margin = new Thickness(12, 6, 12, 4) };
 
             _btnAbout = MakeSmallButton("关于", 64, Color.FromRgb(88, 88, 96));
-            _btnMirror = MakeSmallButton("国内镜像源", 76, Color.FromRgb(0, 122, 204));
+            _btnCheck = MakeSmallButton("检查更新", 80, Color.FromRgb(0, 122, 204));
+            _btnMirror = MakeSmallButton("国内镜像源", 80, Color.FromRgb(0, 122, 204));
             _btnAbout.VerticalAlignment = VerticalAlignment.Center;
             _btnMirror.VerticalAlignment = VerticalAlignment.Center;
+            _btnCheck.VerticalAlignment = VerticalAlignment.Center;
             _btnMirror.ToolTip = "下载缓慢？切换国内 npm 镜像源";
+            _btnCheck.ToolTip = "拉取最新版本与当前版本对比";
             _btnAbout.Click += BtnAbout_Click;
             _btnMirror.Click += BtnMirror_Click;
+            _btnCheck.Click += BtnCheckUpdate_Click;
             DockPanel.SetDock(_btnAbout, Dock.Right);
+            DockPanel.SetDock(_btnCheck, Dock.Right);
             DockPanel.SetDock(_btnMirror, Dock.Right);
             titleBar.Children.Add(_btnAbout);
+            titleBar.Children.Add(_btnCheck);
             titleBar.Children.Add(_btnMirror);
 
             var title = new TextBlock
@@ -404,6 +412,21 @@ namespace DshLauncherWpf
             }
 
             _dshCached = HasNpxCache();
+
+            // 检测 DSH 版本（dsh --version，或 npx 兜底）
+            _dshVersion = "";
+            string dshVerOut;
+            if (_dshGlobal)
+            {
+                if (RunSync("cmd.exe", "/c \"" + _dshCmd + "\" --version", out dshVerOut) == 0)
+                    _dshVersion = dshVerOut.Trim();
+            }
+            else if (_npmOk)
+            {
+                if (RunSync("cmd.exe", "/c npx --yes " + PackageName + " --version", out dshVerOut) == 0)
+                    _dshVersion = dshVerOut.Trim();
+            }
+
             _serviceRunning = IsPortOpen(3080);
 
             RunOnUi(delegate
@@ -416,6 +439,7 @@ namespace DshLauncherWpf
                 AppendLog("环境检测完成：Node=" + (_nodeOk ? "OK" : "缺失") +
                           "，npm=" + (_npmOk ? "OK" : "缺失") +
                           "，DSH=" + (_dshGlobal ? "全局" : (_dshCached ? "缓存" : "未安装")) +
+                          "，DSH版本=" + (string.IsNullOrEmpty(_dshVersion) ? "未知" : _dshVersion) +
                           "，服务=" + (_serviceRunning ? "运行中" : "未运行"));
 
                 if (_serviceRunning)
@@ -557,6 +581,41 @@ namespace DshLauncherWpf
             t.Start();
         }
 
+        private void BtnCheckUpdate_Click(object sender, RoutedEventArgs e)
+        {
+            Thread t = new Thread(delegate()
+            {
+                string outp;
+                int code = RunSync("cmd.exe", "/c npm view @deepseek-ai/dsh version", out outp);
+                string latest = code == 0 ? outp.Trim() : "";
+                RunOnUi(delegate
+                {
+                    if (string.IsNullOrEmpty(latest))
+                    {
+                        MessageBox.Show("获取最新版本失败，请检查网络。", "检查更新",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                    else if (string.IsNullOrEmpty(_dshVersion))
+                    {
+                        MessageBox.Show("最新版本：" + latest + "\r\n当前版本：未知", "检查更新",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else if (string.Equals(latest, _dshVersion, StringComparison.OrdinalIgnoreCase))
+                    {
+                        MessageBox.Show("已是最新版本（" + latest + "）", "检查更新",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show("发现新版本 " + latest + "，当前 " + _dshVersion, "检查更新",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                });
+            });
+            t.IsBackground = true;
+            t.Start();
+        }
+
         private void BtnAbout_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new AboutWindow();
@@ -588,17 +647,9 @@ namespace DshLauncherWpf
             try
             {
                 p = new Process { StartInfo = psi };
-                p.OutputDataReceived += delegate(object s, DataReceivedEventArgs e)
-                {
-                    if (e.Data != null) CaptureOutput(CleanAnsi(e.Data));
-                };
-                p.ErrorDataReceived += delegate(object s, DataReceivedEventArgs e)
-                {
-                    if (e.Data != null) CaptureOutput(CleanAnsi(e.Data));
-                };
                 p.Start();
-                p.BeginOutputReadLine();
-                p.BeginErrorReadLine();
+                ReadLinesUtf8Async(p.StandardOutput.BaseStream, delegate(string line) { CaptureOutput(CleanAnsi(line)); });
+                ReadLinesUtf8Async(p.StandardError.BaseStream, delegate(string line) { CaptureOutput(CleanAnsi(line)); });
                 _dshProcess = p;
 
                 RunOnUi(delegate { _btnStop.IsEnabled = true; });
@@ -692,17 +743,9 @@ namespace DshLauncherWpf
             try
             {
                 var p = new Process { StartInfo = psi };
-                p.OutputDataReceived += delegate(object s, DataReceivedEventArgs e)
-                {
-                    if (e.Data != null) AppendLog(CleanAnsi(e.Data));
-                };
-                p.ErrorDataReceived += delegate(object s, DataReceivedEventArgs e)
-                {
-                    if (e.Data != null) AppendLog(CleanAnsi(e.Data));
-                };
                 p.Start();
-                p.BeginOutputReadLine();
-                p.BeginErrorReadLine();
+                ReadLinesUtf8Async(p.StandardOutput.BaseStream, delegate(string line) { AppendLog(CleanAnsi(line)); });
+                ReadLinesUtf8Async(p.StandardError.BaseStream, delegate(string line) { AppendLog(CleanAnsi(line)); });
                 p.WaitForExit();
                 int code = p.ExitCode;
 
@@ -916,6 +959,10 @@ namespace DshLauncherWpf
             try { info.OwnerName = ResolveEntryPackageName(info.OwnerId); }
             catch { }
             string removableOwner = ResolveRemovableOwner(info.OwnerName);
+            // 卸载占用方目标：优先可卸载的直接依赖，否则退回 owner 包名 / 条目 id，保证按钮始终出现
+            string removeOwner = !string.IsNullOrEmpty(removableOwner)
+                ? removableOwner
+                : (!string.IsNullOrEmpty(info.OwnerName) ? info.OwnerName : info.OwnerId);
 
             string ownerDisplay = string.IsNullOrEmpty(info.OwnerName)
                 ? ("条目 " + info.OwnerId)
@@ -930,14 +977,14 @@ namespace DshLauncherWpf
             var sb = new StringBuilder();
             sb.AppendLine("服务名 \"" + info.Service + "\" 被两个插件重复注册：");
             sb.AppendLine();
-            sb.AppendLine("  · 已占用（先注册方）：" + ownerDisplay);
-            sb.AppendLine("  · 冲突插件：" + claimantDisplay);
+            sb.AppendLine("  · 后注册占用：" + ownerDisplay);
+            sb.AppendLine("  · 本地冲突插件：" + claimantDisplay);
             sb.AppendLine();
             sb.AppendLine("原因：Cordis 服务名是全局唯一的，同名服务只能有一个提供者。");
             sb.AppendLine();
             sb.AppendLine("请选择卸载其中一方（卸载后需重启服务）：");
-            if (!string.IsNullOrEmpty(removableOwner))
-                sb.AppendLine("  · 「卸载占用方」将移除 " + removableOwner);
+            if (!string.IsNullOrEmpty(removeOwner))
+                sb.AppendLine("  · 「卸载占用方」将移除 " + removeOwner);
             if (!string.IsNullOrEmpty(removeClaimant))
                 sb.AppendLine("  · 「卸载冲突方」将移除 " + removeClaimant);
             string msg = sb.ToString();
@@ -945,7 +992,7 @@ namespace DshLauncherWpf
             foreach (string l in msg.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
                 AppendLog("【诊断】" + l);
 
-            RunOnUi(delegate { ShowCollisionDialog(info, msg, removableOwner); });
+            RunOnUi(delegate { ShowCollisionDialog(info, msg, removeOwner); });
             SetStatus("启动失败：插件服务冲突");
         }
 
@@ -1066,6 +1113,14 @@ namespace DshLauncherWpf
             }
             else
             {
+                // 间接依赖无法直接卸载：从 pnpm 报错解析可用直接依赖并改卸载它
+                string alt = FindAlternativeDirectDependency(output, package);
+                if (!string.IsNullOrEmpty(alt) && !string.Equals(alt, package, StringComparison.OrdinalIgnoreCase))
+                {
+                    AppendLog("目标 " + package + " 为间接依赖，改为卸载直接依赖 " + alt + " ...");
+                    RemovePluginThread(alt);
+                    return;
+                }
                 AppendLog("卸载失败，退出码 " + code + "，请查看上方日志。");
                 SetStatus("卸载失败");
             }
@@ -1123,11 +1178,55 @@ namespace DshLauncherWpf
         private static List<string> ReadDependencyNames(string packageJson)
         {
             var result = new List<string>();
-            Match m = Regex.Match(packageJson, @"[""']dependencies[""']\s*:\s*\{([\s\S]*?)\}");
-            if (!m.Success) return result;
-            foreach (Match km in Regex.Matches(m.Groups[1].Value, @"[""']([^""']+)[""']\s*:"))
-                result.Add(km.Groups[1].Value);
+            // 同时读取 dependencies / peerDependencies / optionalDependencies
+            foreach (Match section in Regex.Matches(packageJson,
+                @"[""'](?:dependencies|peerDependencies|optionalDependencies)[""']\s*:\s*\{([\s\S]*?)\}"))
+            {
+                foreach (Match km in Regex.Matches(section.Groups[1].Value, @"[""']([^""']+)[""']\s*:"))
+                    result.Add(km.Groups[1].Value);
+            }
             return result;
+        }
+
+        private static string FindAlternativeDirectDependency(string output, string package)
+        {
+            if (string.IsNullOrEmpty(output) || string.IsNullOrEmpty(package)) return null;
+            Match m = Regex.Match(output, @"Available dependencies:\s*(?<list>[^\r\n]+)");
+            if (!m.Success) return null;
+
+            var deps = new List<string>();
+            foreach (string d in m.Groups["list"].Value.Split(','))
+            {
+                string t = d.Trim();
+                if (!string.IsNullOrEmpty(t)) deps.Add(t);
+            }
+            if (deps.Count == 0) return null;
+
+            // 优先匹配同 scope 的直接依赖
+            if (package.StartsWith("@", StringComparison.Ordinal))
+            {
+                int slash = package.IndexOf('/');
+                if (slash > 0)
+                {
+                    string scope = package.Substring(0, slash + 1);
+                    foreach (string d in deps)
+                        if (d.StartsWith(scope, StringComparison.OrdinalIgnoreCase)) return d;
+                }
+            }
+
+            // 其次按名字包含关系匹配
+            string bare = package;
+            int pSlash = package.IndexOf('/');
+            if (pSlash > 0) bare = package.Substring(pSlash + 1);
+            foreach (string d in deps)
+            {
+                int dSlash = d.IndexOf('/');
+                string dBare = dSlash > 0 ? d.Substring(dSlash + 1) : d;
+                if (bare.IndexOf(dBare, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    dBare.IndexOf(bare, StringComparison.OrdinalIgnoreCase) >= 0)
+                    return d;
+            }
+            return null;
         }
 
         private static bool DependsOn(string profileDir, string package, string target, HashSet<string> visited, int depth)
@@ -1216,7 +1315,7 @@ namespace DshLauncherWpf
         // ------------------------------------------------------------------
         // 工具方法
         // ------------------------------------------------------------------
-        private static int RunSync(string fileName, string args, out string output)
+        internal static int RunSync(string fileName, string args, out string output)
         {
             output = "";
             try
@@ -1226,8 +1325,8 @@ namespace DshLauncherWpf
                 {
                     p.StartInfo = psi;
                     p.Start();
-                    string o = p.StandardOutput.ReadToEnd();
-                    string e = p.StandardError.ReadToEnd();
+                    string o = ReadUtf8(p.StandardOutput.BaseStream);
+                    string e = ReadUtf8(p.StandardError.BaseStream);
                     p.WaitForExit();
                     output = (o + "\n" + e).Trim();
                     return p.ExitCode;
@@ -1240,7 +1339,39 @@ namespace DshLauncherWpf
             }
         }
 
-        private static ProcessStartInfo BuildPsi(string fileName, string args)
+        private static string ReadUtf8(Stream stream)
+        {
+            using (var reader = new StreamReader(stream, Encoding.UTF8))
+            {
+                return reader.ReadToEnd();
+            }
+        }
+
+        private static void ReadLinesUtf8Async(Stream stream, Action<string> onLine)
+        {
+            var t = new Thread(delegate() { ReadLinesUtf8(stream, onLine); });
+            t.IsBackground = true;
+            t.Start();
+        }
+
+        private static void ReadLinesUtf8(Stream stream, Action<string> onLine)
+        {
+            try
+            {
+                using (var reader = new StreamReader(stream, Encoding.UTF8))
+                {
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        if (!string.IsNullOrEmpty(line))
+                            onLine(line);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        internal static ProcessStartInfo BuildPsi(string fileName, string args)
         {
             var psi = new ProcessStartInfo
             {
@@ -1445,13 +1576,13 @@ namespace DshLauncherWpf
         {
             Title = "关于 DSH Launcher";
             Width = 400;
-            Height = 250;
+            Height = 210;
             ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             Background = Brushes.White;
             FontFamily = new FontFamily("Microsoft YaHei UI");
 
-            var sp = new StackPanel { Margin = new Thickness(28, 24, 28, 20) };
+            var sp = new StackPanel { Margin = new Thickness(28, 24, 28, 24) };
 
             sp.Children.Add(new TextBlock
             {
@@ -1463,24 +1594,15 @@ namespace DshLauncherWpf
 
             sp.Children.Add(new TextBlock
             {
-                Text = "DSH（DeepSeek Harness）一键启动器",
-                FontSize = 13,
-                Margin = new Thickness(0, 10, 0, 0),
-                TextWrapping = TextWrapping.Wrap,
-                HorizontalAlignment = HorizontalAlignment.Center
-            });
-
-            sp.Children.Add(new TextBlock
-            {
-                Text = "单文件、绿色便携，用于启动 / 重启 / 停止 DSH Web 服务。",
+                Text = "DSH（DeepSeek Harness）一键启动器\r\n单文件、绿色便携，用于快捷使用 DSH。",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(Color.FromRgb(110, 114, 122)),
-                Margin = new Thickness(0, 6, 0, 0),
+                Margin = new Thickness(0, 10, 0, 0),
                 TextWrapping = TextWrapping.Wrap,
-                HorizontalAlignment = HorizontalAlignment.Center
+                TextAlignment = TextAlignment.Center
             });
 
-            var btnGithub = MainWindow.MakeButton("前往 GitHub", 150, Color.FromRgb(0, 122, 204));
+            var btnGithub = MainWindow.MakeButton("前往 GitHub", 140, Color.FromRgb(88, 88, 96));
             btnGithub.Margin = new Thickness(0, 18, 0, 0);
             btnGithub.HorizontalAlignment = HorizontalAlignment.Center;
             btnGithub.Click += delegate

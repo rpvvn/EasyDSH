@@ -16,13 +16,13 @@
 - 🔄 **One-Click Restart**: Force terminate the running service → wait for the port to be released → restart the service.
 - ⏹ **Stop Service**: Globally scan all running DSH processes (Node.js processes + processes occupying port 3080) and force terminate them.
 - 📦 **One-Click Install**: Run `npm install -g @deepseek-ai/dsh` to complete global installation of DSH.
-- 🔍 **Environment Detection**: Real-time status cards with colored indicator dots showing the status of Node.js, npm, DSH (global installation / npx cache), and service port connectivity.
+- 🔍 **Environment Detection**: Detect missing environment and provide downloads,Real-time status cards with colored indicator dots showing the status of Node.js, npm, DSH (global installation / npx cache), and service port connectivity.
 - 🎨 **WPF Vector UI**: Rounded buttons, color-coded status panels, and hover highlight effects.
 - 📦 **Single-File Portable Release**: No installation or configuration files needed; you can store it on a USB drive and run it anywhere.
 - 🛡 **Service Conflict Diagnostics**: Automatically identify plugin service name conflicts when startup fails. A popup window will show which package occupies the service and which one causes the conflict, with a one-click uninstall option for either package.
 - 🔌 **Flexible Close**: When closing the window, choose "Stop & Close" or "Close Window Only" to keep the DSH service running in the background without force-stopping it.
 - 🚫 **Single Instance**: Detect an already-running instance at startup and show "Already running — please do not run it again", then exit to prevent duplicate launches.
-
+- ℹ️ **Extra Support**: Switch to China NPM mirror registry
 ---
 
 ## 📋 Prerequisites

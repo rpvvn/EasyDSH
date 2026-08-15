@@ -48,6 +48,8 @@ namespace DshLauncherWpf
         private Button _btnBrowser;
         private Button _btnInstall;
         private Button _btnStop;
+        private Button _btnMirror;
+        private Button _btnAbout;
         private TextBlock _lblStatus;
 
         private Process _dshProcess;
@@ -109,17 +111,32 @@ namespace DshLauncherWpf
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(26) });
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(52) });
 
-            // 标题
+            // 标题栏：左侧标题 + 右侧环境/关于按钮
+            var titleBar = new DockPanel { Margin = new Thickness(12, 6, 12, 4) };
+
+            _btnAbout = MakeSmallButton("关于", 64, Color.FromRgb(88, 88, 96));
+            _btnMirror = MakeSmallButton("国内镜像源", 76, Color.FromRgb(0, 122, 204));
+            _btnAbout.VerticalAlignment = VerticalAlignment.Center;
+            _btnMirror.VerticalAlignment = VerticalAlignment.Center;
+            _btnMirror.ToolTip = "下载缓慢？切换国内 npm 镜像源";
+            _btnAbout.Click += BtnAbout_Click;
+            _btnMirror.Click += BtnMirror_Click;
+            DockPanel.SetDock(_btnAbout, Dock.Right);
+            DockPanel.SetDock(_btnMirror, Dock.Right);
+            titleBar.Children.Add(_btnAbout);
+            titleBar.Children.Add(_btnMirror);
+
             var title = new TextBlock
             {
-                Text = "DSH 一键启动器",
-                HorizontalAlignment = HorizontalAlignment.Center,
+                Text = "Vibe Coding 轻而易举啊！",
                 VerticalAlignment = VerticalAlignment.Center,
                 FontSize = 17,
                 FontWeight = FontWeights.Bold
             };
-            Grid.SetRow(title, 0);
-            root.Children.Add(title);
+            titleBar.Children.Add(title);
+
+            Grid.SetRow(titleBar, 0);
+            root.Children.Add(titleBar);
 
             // 环境状态区（2x2 卡片）
             var envGrid = new UniformGrid
@@ -268,7 +285,7 @@ namespace DshLauncherWpf
             return border;
         }
 
-        private static Button MakeButton(string text, double width, Color normal)
+        internal static Button MakeButton(string text, double width, Color normal)
         {
             return new Button
             {
@@ -280,6 +297,14 @@ namespace DshLauncherWpf
                 FontSize = 13,
                 Style = CreateButtonStyle(normal, Lighten(normal, 0.18), Lighten(normal, 0.55))
             };
+        }
+
+        private static Button MakeSmallButton(string text, double width, Color normal)
+        {
+            var b = MakeButton(text, width, normal);
+            b.Height = 26;
+            b.FontSize = 12;
+            return b;
         }
 
         private static Style CreateButtonStyle(Color normal, Color hover, Color disabled)
@@ -399,6 +424,15 @@ namespace DshLauncherWpf
                     SetStatus("环境就绪，可一键启动");
                 else
                     SetStatus("请先安装 Node.js");
+
+                if (!_nodeOk)
+                {
+                    MessageBoxResult r = MessageBox.Show(
+                        "未检测到 Node.js，是否前往官方下载页？",
+                        "提示", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    if (r == MessageBoxResult.Yes)
+                        Process.Start("https://nodejs.org/zh-cn/download");
+                }
             });
         }
 
@@ -497,6 +531,37 @@ namespace DshLauncherWpf
         private void BtnBrowser_Click(object sender, RoutedEventArgs e)
         {
             OpenBrowser();
+        }
+
+        private void BtnMirror_Click(object sender, RoutedEventArgs e)
+        {
+            Thread t = new Thread(delegate()
+            {
+                string outp;
+                int code = RunSync("cmd.exe", "/c npm config set registry https://registry.npmmirror.com", out outp);
+                RunOnUi(delegate
+                {
+                    if (code == 0)
+                    {
+                        MessageBox.Show("已切换至国内镜像源：\r\nhttps://registry.npmmirror.com",
+                            "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                        AppendLog("npm 镜像源已切换为 https://registry.npmmirror.com");
+                    }
+                    else
+                    {
+                        MessageBox.Show("切换镜像源失败：" + outp, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                });
+            });
+            t.IsBackground = true;
+            t.Start();
+        }
+
+        private void BtnAbout_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new AboutWindow();
+            dlg.Owner = this;
+            dlg.ShowDialog();
         }
 
         // ------------------------------------------------------------------
@@ -1371,6 +1436,61 @@ namespace DshLauncherWpf
             public string OwnerName;
             public string ClaimantId;
             public string ClaimantName;
+        }
+    }
+
+    internal class AboutWindow : Window
+    {
+        public AboutWindow()
+        {
+            Title = "关于 DSH Launcher";
+            Width = 400;
+            Height = 250;
+            ResizeMode = ResizeMode.NoResize;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Background = Brushes.White;
+            FontFamily = new FontFamily("Microsoft YaHei UI");
+
+            var sp = new StackPanel { Margin = new Thickness(28, 24, 28, 20) };
+
+            sp.Children.Add(new TextBlock
+            {
+                Text = "DSH Launcher",
+                FontSize = 20,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+
+            sp.Children.Add(new TextBlock
+            {
+                Text = "DSH（DeepSeek Harness）一键启动器",
+                FontSize = 13,
+                Margin = new Thickness(0, 10, 0, 0),
+                TextWrapping = TextWrapping.Wrap,
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+
+            sp.Children.Add(new TextBlock
+            {
+                Text = "单文件、绿色便携，用于启动 / 重启 / 停止 DSH Web 服务。",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromRgb(110, 114, 122)),
+                Margin = new Thickness(0, 6, 0, 0),
+                TextWrapping = TextWrapping.Wrap,
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+
+            var btnGithub = MainWindow.MakeButton("前往 GitHub", 150, Color.FromRgb(0, 122, 204));
+            btnGithub.Margin = new Thickness(0, 18, 0, 0);
+            btnGithub.HorizontalAlignment = HorizontalAlignment.Center;
+            btnGithub.Click += delegate
+            {
+                try { Process.Start("https://github.com/rpvvn/EasyDSH"); }
+                catch { }
+            };
+            sp.Children.Add(btnGithub);
+
+            Content = sp;
         }
     }
 

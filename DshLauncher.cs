@@ -51,6 +51,7 @@ namespace DshLauncherWpf
         private Button _btnMirror;
         private Button _btnCheck;
         private Button _btnProxy;
+        private Button _btnRestore;
         private Button _btnAbout;
         private TextBlock _lblStatus;
 
@@ -114,7 +115,7 @@ namespace DshLauncherWpf
         private void BuildUi()
         {
             Title = "DSH 一键启动器";
-            Width = 600;
+            Width = 700;
             Height = 440;
             ResizeMode = ResizeMode.CanMinimize;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
@@ -134,10 +135,12 @@ namespace DshLauncherWpf
             // 标题栏：左侧标题 + 右侧环境/关于按钮
             var titleBar = new DockPanel { Margin = new Thickness(12, 6, 12, 4) };
 
+            _btnRestore = MakeSmallButton("一键还原", 80, Color.FromRgb(198, 60, 60));
             _btnAbout = MakeSmallButton("什么玩意", 64, Color.FromRgb(142, 68, 173));
             _btnCheck = MakeSmallButton("调查梁子", 80, Color.FromRgb(0, 122, 204));
             _btnProxy = MakeSmallButton("插件下载慢", 80, Color.FromRgb(0, 150, 90));
             _btnMirror = MakeSmallButton("NPM镜像源", 80, Color.FromRgb(230, 145, 56));
+            _btnRestore.VerticalAlignment = VerticalAlignment.Center;
             _btnAbout.VerticalAlignment = VerticalAlignment.Center;
             _btnMirror.VerticalAlignment = VerticalAlignment.Center;
             _btnCheck.VerticalAlignment = VerticalAlignment.Center;
@@ -145,6 +148,7 @@ namespace DshLauncherWpf
             _btnMirror.ToolTip = "下载缓慢？切换国内 npm 镜像源";
             _btnCheck.ToolTip = "狠狠调查大肥鱼有没有更新";
             _btnProxy.ToolTip = "写入 PowerShell 代理函数（ep/dp）";
+            _btnRestore.ToolTip = "卸载 / 一键还原 DSH";
             _btnAbout.ToolTip = "点进来看看这是什么东东";
             bool aboutLongPressed = false;
             DispatcherTimer aboutHoldTimer = null;
@@ -179,6 +183,7 @@ namespace DshLauncherWpf
                 }
                 BtnAbout_Click(s, e);
             };
+            _btnRestore.Click += BtnRestore_Click;
             _btnMirror.Click += BtnMirror_Click;
             bool checkLongPressed = false;
             DispatcherTimer checkHoldTimer = null;
@@ -212,10 +217,12 @@ namespace DshLauncherWpf
                 BtnCheckUpdate_Click(s, e);
             };
             _btnProxy.Click += BtnProxy_Click;
+            DockPanel.SetDock(_btnRestore, Dock.Right);
             DockPanel.SetDock(_btnAbout, Dock.Right);
             DockPanel.SetDock(_btnCheck, Dock.Right);
             DockPanel.SetDock(_btnProxy, Dock.Right);
             DockPanel.SetDock(_btnMirror, Dock.Right);
+            titleBar.Children.Add(_btnRestore);
             titleBar.Children.Add(_btnAbout);
             titleBar.Children.Add(_btnProxy);
             titleBar.Children.Add(_btnCheck);
@@ -754,6 +761,94 @@ namespace DshLauncherWpf
                 "  · 「卸载占用方」将移除 @test/owner-plugin\r\n" +
                 "  · 「卸载冲突方」将移除 @test/claimant-plugin";
             ShowCollisionDialog(info, msg, "@test/owner-plugin");
+        }
+
+        private void BtnRestore_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new UninstallWindow();
+            dlg.Owner = this;
+            dlg.ShowDialog();
+        }
+
+        internal void ShowConfirm(string title, string message, Action onConfirm)
+        {
+            var dlg = new ConfirmWindow(title, message, onConfirm);
+            dlg.Owner = this;
+            dlg.ShowDialog();
+        }
+
+        public void StartDshUninstall(bool full)
+        {
+            Thread t = new Thread(() => UninstallDshThread(full));
+            t.IsBackground = true;
+            t.Start();
+        }
+
+        private void UninstallDshThread(bool full)
+        {
+            AppendLog("开始卸载 DSH" + (full ? "（完全卸载）" : "（仅卸载本体）") + " ...");
+            string outp;
+            int code = RunSync("cmd.exe", "/c npm uninstall -g @deepseek-ai/dsh", out outp);
+            if (!string.IsNullOrEmpty(outp))
+            {
+                foreach (string line in outp.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
+                    AppendLog(line);
+            }
+            AppendLog("npm 全局卸载" + (code == 0 ? "完成" : "退出码 " + code));
+
+            AppendLog("清理 npm/npx 缓存中的 DSH...");
+            CleanNpxDshCache();
+
+            if (full)
+            {
+                string dshDir = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".dsh");
+                AppendLog("删除用户配置目录：" + dshDir);
+                try
+                {
+                    if (Directory.Exists(dshDir))
+                    {
+                        Directory.Delete(dshDir, true);
+                        AppendLog("已删除 .dsh 配置目录。");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("删除 .dsh 配置目录失败：" + ex.Message);
+                }
+            }
+
+            AppendLog("卸载流程" + (full ? "（完全）" : "完成") + "，正在重新检测环境...");
+            Thread t = new Thread(DetectEnvironment);
+            t.IsBackground = true;
+            t.Start();
+        }
+
+        private void CleanNpxDshCache()
+        {
+            try
+            {
+                string root = _npmCache;
+                if (string.IsNullOrEmpty(root))
+                    root = System.IO.Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "npm-cache");
+                string npx = System.IO.Path.Combine(root, "_npx");
+                if (!Directory.Exists(npx)) return;
+                foreach (string dir in Directory.GetDirectories(npx))
+                {
+                    string dshDir = System.IO.Path.Combine(dir, "node_modules", "@deepseek-ai", "dsh");
+                    if (Directory.Exists(dshDir))
+                    {
+                        try
+                        {
+                            Directory.Delete(dshDir, true);
+                            AppendLog("已清理缓存：" + dshDir);
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
         }
 
         public void StartDshUpdate()
@@ -2072,6 +2167,124 @@ namespace DshLauncherWpf
 
             btnPanel.Children.Add(btnYes);
             btnPanel.Children.Add(btnNo);
+            sp.Children.Add(btnPanel);
+
+            Content = sp;
+        }
+    }
+
+    internal class UninstallWindow : Window
+    {
+        public UninstallWindow()
+        {
+            Title = "一键还原";
+            Width = 460;
+            SizeToContent = SizeToContent.Height;
+            ResizeMode = ResizeMode.NoResize;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Background = Brushes.White;
+            FontFamily = new FontFamily("Microsoft YaHei UI");
+
+            var sp = new StackPanel { Margin = new Thickness(28, 24, 28, 20) };
+
+            sp.Children.Add(new TextBlock
+            {
+                Text = "请选择卸载方式：",
+                FontSize = 13,
+                Foreground = new SolidColorBrush(Color.FromRgb(40, 44, 52)),
+                TextAlignment = TextAlignment.Center
+            });
+
+            var btnPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 18, 0, 0)
+            };
+            var btnOnly = MainWindow.MakeButton("卸载DSH本体", 120, Color.FromRgb(230, 145, 56));
+            var btnFull = MainWindow.MakeButton("完全卸载DSH", 120, Color.FromRgb(198, 60, 60));
+            var btnCancel = MainWindow.MakeButton("取消", 80, Color.FromRgb(88, 88, 96));
+
+            btnOnly.Click += delegate
+            {
+                var owner = Owner as MainWindow;
+                if (owner != null)
+                {
+                    owner.ShowConfirm("二次确认",
+                        "确定要卸载 DSH 本体吗？\r\n\r\n将执行：\r\n" +
+                        "  · npm uninstall -g @deepseek-ai/dsh\r\n" +
+                        "  · 清理 npm/npx 缓存中的 DSH 文件\r\n\r\n" +
+                        "影响：DSH 命令将不可用，需重新安装才能继续使用；不影响 ~/.dsh 配置文件。",
+                        delegate { owner.StartDshUninstall(false); });
+                }
+                Close();
+            };
+            btnFull.Click += delegate
+            {
+                var owner = Owner as MainWindow;
+                if (owner != null)
+                {
+                    owner.ShowConfirm("二次确认",
+                        "确定要完全卸载 DSH 吗？\r\n\r\n将执行：\r\n" +
+                        "  · npm uninstall -g @deepseek-ai/dsh\r\n" +
+                        "  · 清理 npm/npx 缓存\r\n" +
+                        "  · 删除用户配置目录 ~/.dsh（含配置、插件、数据）\r\n\r\n" +
+                        "影响：DSH 及其所有配置、数据将被永久删除，不可恢复！",
+                        delegate { owner.StartDshUninstall(true); });
+                }
+                Close();
+            };
+            btnCancel.Click += delegate { Close(); };
+
+            btnPanel.Children.Add(btnOnly);
+            btnPanel.Children.Add(btnFull);
+            btnPanel.Children.Add(btnCancel);
+            sp.Children.Add(btnPanel);
+
+            Content = sp;
+        }
+    }
+
+    internal class ConfirmWindow : Window
+    {
+        public ConfirmWindow(string title, string message, Action onConfirm)
+        {
+            Title = title;
+            Width = 440;
+            SizeToContent = SizeToContent.Height;
+            ResizeMode = ResizeMode.NoResize;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Background = Brushes.White;
+            FontFamily = new FontFamily("Microsoft YaHei UI");
+
+            var sp = new StackPanel { Margin = new Thickness(28, 24, 28, 20) };
+
+            sp.Children.Add(new TextBlock
+            {
+                Text = message,
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = new SolidColorBrush(Color.FromRgb(40, 44, 52))
+            });
+
+            var btnPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 18, 0, 0)
+            };
+            var btnOk = MainWindow.MakeButton("确认", 100, Color.FromRgb(198, 60, 60));
+            var btnCancel = MainWindow.MakeButton("取消", 100, Color.FromRgb(88, 88, 96));
+
+            btnOk.Click += delegate
+            {
+                Close();
+                if (onConfirm != null) onConfirm();
+            };
+            btnCancel.Click += delegate { Close(); };
+
+            btnPanel.Children.Add(btnOk);
+            btnPanel.Children.Add(btnCancel);
             sp.Children.Add(btnPanel);
 
             Content = sp;

@@ -38,9 +38,11 @@ jobs:
 
       - name: Create Release (on tag)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: DSH-Launcher.exe
-          body_path: UpdateLog.md
+        shell: bash
+        run: |
+          gh release create "${GITHUB_REF_NAME}" DSH-Launcher.exe \
+            --title "DSH Launcher ${GITHUB_REF_NAME}" \
+            --notes-file UpdateLog.md || \
+            gh release edit "${GITHUB_REF_NAME}" --notes-file UpdateLog.md
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}

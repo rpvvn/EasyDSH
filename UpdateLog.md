@@ -6,6 +6,20 @@ All notable changes to this project will be documented in this file, which is al
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-08-16
+
+### Added
+
+- 新增「一键还原」：卸载 DSH 本体 / 完全卸载（含 `~/.dsh` 配置、插件、数据），均带二次确认
+- Node.js 未安装时改用 winget 列出所有 LTS 版本，双列按钮一键安装对应版本
+- 检查更新发现新版本时提供「更就完了 / 更个鸡毛」双按钮
+- 界面横向加宽至 700，标题栏新增「一键还原」按钮
+- 隐藏测试入口：长按「调查梁子」触发插件冲突界面
+
+### Fixed
+
+- 修复 winget 版本列表解析失败（兼容多种输出格式）
+
 ## [2.1.1] - 2026-08-16
 
 ### Added

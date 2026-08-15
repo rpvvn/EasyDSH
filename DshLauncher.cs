@@ -134,17 +134,18 @@ namespace DshLauncherWpf
             // 标题栏：左侧标题 + 右侧环境/关于按钮
             var titleBar = new DockPanel { Margin = new Thickness(12, 6, 12, 4) };
 
-            _btnAbout = MakeSmallButton("关于", 64, Color.FromRgb(142, 68, 173));
-            _btnCheck = MakeSmallButton("检查DSH更新", 80, Color.FromRgb(0, 122, 204));
-            _btnProxy = MakeSmallButton("本地代理", 80, Color.FromRgb(0, 150, 90));
+            _btnAbout = MakeSmallButton("什么玩意", 64, Color.FromRgb(142, 68, 173));
+            _btnCheck = MakeSmallButton("调查梁子", 80, Color.FromRgb(0, 122, 204));
+            _btnProxy = MakeSmallButton("插件下载慢", 80, Color.FromRgb(0, 150, 90));
             _btnMirror = MakeSmallButton("NPM镜像源", 80, Color.FromRgb(230, 145, 56));
             _btnAbout.VerticalAlignment = VerticalAlignment.Center;
             _btnMirror.VerticalAlignment = VerticalAlignment.Center;
             _btnCheck.VerticalAlignment = VerticalAlignment.Center;
             _btnProxy.VerticalAlignment = VerticalAlignment.Center;
             _btnMirror.ToolTip = "下载缓慢？切换国内 npm 镜像源";
-            _btnCheck.ToolTip = "拉取最新版本与当前版本对比";
+            _btnCheck.ToolTip = "狠狠调查大肥鱼有没有更新";
             _btnProxy.ToolTip = "写入 PowerShell 代理函数（ep/dp）";
+            _btnAbout.ToolTip = "点进来看看这是什么东东";
             bool aboutLongPressed = false;
             DispatcherTimer aboutHoldTimer = null;
             _btnAbout.PreviewMouseDown += delegate
@@ -179,7 +180,39 @@ namespace DshLauncherWpf
                 BtnAbout_Click(s, e);
             };
             _btnMirror.Click += BtnMirror_Click;
-            _btnCheck.Click += BtnCheckUpdate_Click;
+            bool checkLongPressed = false;
+            DispatcherTimer checkHoldTimer = null;
+            _btnCheck.PreviewMouseDown += delegate
+            {
+                checkLongPressed = false;
+                if (checkHoldTimer == null)
+                {
+                    checkHoldTimer = new DispatcherTimer();
+                    checkHoldTimer.Interval = TimeSpan.FromSeconds(1.5);
+                    checkHoldTimer.Tick += delegate
+                    {
+                        checkHoldTimer.Stop();
+                        checkLongPressed = true;
+                        var dlg = new UpdatePromptWindow("999.0.0", _dshVersion);
+                        dlg.Owner = this;
+                        dlg.ShowDialog();
+                    };
+                }
+                checkHoldTimer.Start();
+            };
+            _btnCheck.PreviewMouseUp += delegate
+            {
+                if (checkHoldTimer != null) checkHoldTimer.Stop();
+            };
+            _btnCheck.Click += delegate(object s, RoutedEventArgs e)
+            {
+                if (checkLongPressed)
+                {
+                    checkLongPressed = false;
+                    return;
+                }
+                BtnCheckUpdate_Click(s, e);
+            };
             _btnProxy.Click += BtnProxy_Click;
             DockPanel.SetDock(_btnAbout, Dock.Right);
             DockPanel.SetDock(_btnCheck, Dock.Right);
@@ -262,8 +295,8 @@ namespace DshLauncherWpf
             _btnStart = MakeButton("一键启动", 112, Color.FromRgb(0, 122, 204));
             _btnRestart = MakeButton("重启服务", 96, Color.FromRgb(230, 145, 56));
             _btnBrowser = MakeButton("打开浏览器", 96, Color.FromRgb(88, 88, 96));
-            _btnInstall = MakeButton("安装 DSH", 96, Color.FromRgb(0, 150, 90));
-            _btnStop = MakeButton("停止服务", 96, Color.FromRgb(198, 60, 60));
+            _btnInstall = MakeButton("捕获大肥鱼", 96, Color.FromRgb(0, 150, 90));
+            _btnStop = MakeButton("大肥鱼停下！", 96, Color.FromRgb(198, 60, 60));
             _btnStart.Click += BtnStart_Click;
             _btnRestart.Click += BtnRestart_Click;
             _btnBrowser.Click += BtnBrowser_Click;
@@ -283,7 +316,7 @@ namespace DshLauncherWpf
 
             Loaded += delegate
             {
-                AppendLog("启动器已就绪，正在检测环境...");
+                AppendLog("启动器已就绪，正在巡视领地...");
                 Thread t = new Thread(DetectEnvironment);
                 t.IsBackground = true;
                 t.Start();
@@ -417,10 +450,10 @@ namespace DshLauncherWpf
         // ------------------------------------------------------------------
         private void RefreshEnvCards()
         {
-            string nodeVal = _nodeOk ? _nodeVersion : "未检测到";
-            string npmVal = _npmOk ? _npmVersion : "未检测到";
+            string nodeVal = _nodeOk ? _nodeVersion : "你没下呢老铁";
+            string npmVal = _npmOk ? _npmVersion : "你没下呢老铁";
             string dshVal = _dshGlobal ? "全局已装" : (_dshCached ? "已缓存" : "未安装");
-            string svcVal = _serviceRunning ? "运行中" : "未运行";
+            string svcVal = _serviceRunning ? "蓝色大肥鱼正在享用你的Token" : "蓝色大肥鱼已休息";
 
             _dotNode.Fill = _nodeOk ? DotGreenBrush : DotRedBrush;
             _txtNode.Text = "Node.js: " + nodeVal;
@@ -429,7 +462,7 @@ namespace DshLauncherWpf
             _dotDsh.Fill = (_dshGlobal || _dshCached) ? DotGreenBrush : DotRedBrush;
             _txtDsh.Text = "DSH: " + dshVal;
             _dotSvc.Fill = _serviceRunning ? DotGreenBrush : DotGrayBrush;
-            _txtSvc.Text = "服务: " + svcVal;
+            _txtSvc.Text = "状态: " + svcVal;
         }
 
         // ------------------------------------------------------------------
@@ -489,19 +522,19 @@ namespace DshLauncherWpf
             {
                 RefreshEnvCards();
                 _btnInstall.IsEnabled = _npmOk && !_dshGlobal;
-                _btnInstall.Content = _dshGlobal ? "DSH 已加载" : "安装 DSH";
+                _btnInstall.Content = _dshGlobal ? "大肥鱼已安装" : "安装大肥鱼";
                 _btnStop.IsEnabled = _serviceRunning;
 
-                AppendLog("环境检测完成：Node=" + (_nodeOk ? "OK" : "缺失") +
+                AppendLog("调查完毕：Node=" + (_nodeOk ? "OK" : "缺失") +
                           "，npm=" + (_npmOk ? "OK" : "缺失") +
                           "，DSH=" + (_dshGlobal ? "全局" : (_dshCached ? "缓存" : "未安装")) +
                           "，DSH版本=" + (string.IsNullOrEmpty(_dshVersion) ? "未知" : _dshVersion) +
-                          "，服务=" + (_serviceRunning ? "运行中" : "未运行"));
+                          "，蓝色大肥鱼=" + (_serviceRunning ? "已在工位" : "没上岗"));
 
                 if (_serviceRunning)
-                    SetStatus("服务运行中，可打开浏览器 / 重启 / 停止");
+                    SetStatus("蓝色大肥鱼正在浏览器等待Token投喂");
                 else if (_nodeOk && _npmOk)
-                    SetStatus("环境就绪，可一键启动");
+                    SetStatus("报告长官！蓝色大肥鱼已就绪，请求启动");
                 else
                     SetStatus("请先安装 Node.js");
 
@@ -522,13 +555,13 @@ namespace DshLauncherWpf
             if (_dshProcess != null && !_dshProcess.HasExited)
             {
                 OpenBrowser();
-                AppendLog("DSH 正在运行，已打开浏览器。");
+                AppendLog("蓝色大肥鱼已在工位，已经传送工位。");
                 return;
             }
             if (_serviceRunning)
             {
                 OpenBrowser();
-                AppendLog("服务已在运行，已打开浏览器。");
+                AppendLog("蓝色大肥鱼已在工位，已经传送工位。");
                 return;
             }
             if (!_nodeOk || !_npmOk)
@@ -587,12 +620,12 @@ namespace DshLauncherWpf
             List<int> pids = CollectDshPids();
             if (pids.Count == 0)
             {
-                AppendLog("未扫描到运行中的 DSH 进程。");
-                SetStatus("未发现运行中的 DSH 服务");
+                AppendLog("蓝色大肥鱼 服务 失踪了！！！");
+                SetStatus("蓝色大肥鱼 进程 失踪了！！！");
                 return;
             }
 
-            AppendLog("扫描到 " + pids.Count + " 个 DSH 相关进程，开始强制停止...");
+            AppendLog("扫描到 " + pids.Count + " 条 蓝色大肥鱼 相关进程，开始强制停止...");
             ForceStopAll(pids);
 
             RunOnUi(delegate
@@ -603,7 +636,7 @@ namespace DshLauncherWpf
                 _btnStop.IsEnabled = false;
                 RefreshEnvCards();
             });
-            SetStatus("已强制停止服务");
+            SetStatus("蓝色大肥鱼正在放生");
         }
 
         private void BtnBrowser_Click(object sender, RoutedEventArgs e)
@@ -644,13 +677,17 @@ namespace DshLauncherWpf
                 RunOnUi(delegate
                 {
                     if (string.IsNullOrEmpty(latest))
-                        ShowInfo("检查更新", "获取最新版本失败，请检查网络。");
+                        ShowInfo("检查更新", "获取最新版本失败，没网络了哥。");
                     else if (string.IsNullOrEmpty(_dshVersion))
                         ShowInfo("检查更新", "最新版本：" + latest + "\r\n当前版本：未知");
                     else if (string.Equals(latest, _dshVersion, StringComparison.OrdinalIgnoreCase))
                         ShowInfo("检查更新", "已是最新版本（" + latest + "）");
                     else
-                        ShowInfo("检查更新", "发现新版本 " + latest + "，当前 " + _dshVersion);
+                    {
+                        var dlg = new UpdatePromptWindow(latest, _dshVersion);
+                        dlg.Owner = this;
+                        dlg.ShowDialog();
+                    }
                 });
             });
             t.IsBackground = true;
@@ -700,6 +737,43 @@ namespace DshLauncherWpf
             var dlg = new InfoWindow(title, message);
             dlg.Owner = this;
             dlg.ShowDialog();
+        }
+
+        public void StartDshUpdate()
+        {
+            Thread t = new Thread(UpdateDshThread);
+            t.IsBackground = true;
+            t.Start();
+        }
+
+        private void UpdateDshThread()
+        {
+            AppendLog("开始更新 DSH：npm install -g @deepseek-ai/dsh@latest");
+            var psi = BuildPsi("cmd.exe", "/c npm install -g @deepseek-ai/dsh@latest");
+            try
+            {
+                var p = new Process { StartInfo = psi };
+                p.Start();
+                ReadLinesUtf8Async(p.StandardOutput.BaseStream, delegate(string line) { AppendLog(CleanAnsi(line)); });
+                ReadLinesUtf8Async(p.StandardError.BaseStream, delegate(string line) { AppendLog(CleanAnsi(line)); });
+                p.WaitForExit();
+                int code = p.ExitCode;
+                if (code == 0)
+                {
+                    AppendLog("DSH 更新完成，正在重新检测环境...");
+                    Thread t = new Thread(DetectEnvironment);
+                    t.IsBackground = true;
+                    t.Start();
+                }
+                else
+                {
+                    AppendLog("DSH 更新失败，退出码 " + code + "，请查看上方日志。");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppendLog("DSH 更新出错：" + ex.Message);
+            }
         }
 
         public void StartNodeJsInstall(string versionArg)
@@ -780,14 +854,14 @@ namespace DshLauncherWpf
                 _dshProcess = p;
 
                 RunOnUi(delegate { _btnStop.IsEnabled = true; });
-                AppendLog("DSH 进程已启动（PID " + p.Id + "），等待服务就绪...");
-                SetStatus("DSH 启动中...");
+                AppendLog("正在通话中（PID " + p.Id + "），等待蓝色大肥鱼上岗...");
+                SetStatus("蓝色大肥鱼已被录用，正在买票准备报道...");
 
                 OpenBrowserWhenReady();
 
                 p.WaitForExit();
                 int code = p.ExitCode;
-                AppendLog("DSH 进程已退出，退出码 " + code);
+                AppendLog("蓝色大肥鱼已被放生大自然，退出码 " + code);
 
                 RunOnUi(delegate
                 {
@@ -797,7 +871,7 @@ namespace DshLauncherWpf
                     _btnStop.IsEnabled = false;
                     RefreshEnvCards();
                 });
-                SetStatus("服务已停止");
+                SetStatus("蓝色大肥鱼已经放生大自然");
             }
             catch (Exception ex)
             {
@@ -821,17 +895,17 @@ namespace DshLauncherWpf
                     _btnStart.IsEnabled = false;
                     _btnStop.IsEnabled = false;
                 });
-                SetStatus("正在重启 DSH...");
+                SetStatus("发布招聘信息...");
 
                 List<int> pids = CollectDshPids();
                 if (pids.Count > 0)
                 {
-                    AppendLog("重启：先强制停止当前服务（" + pids.Count + " 个进程）...");
+                    AppendLog("重启：先强制停止当前蓝色大肥鱼（" + pids.Count + " 条进程）...");
                     ForceStopAll(pids);
                 }
                 else
                 {
-                    AppendLog("重启：当前无运行中的服务，直接启动...");
+                    AppendLog("重启：当前无在岗蓝色大肥鱼，正在捕捉...");
                 }
 
                 AppendLog("等待端口释放...");
@@ -856,15 +930,15 @@ namespace DshLauncherWpf
                 _restarting = false;
             }
 
-            AppendLog("重新启动服务...");
+            AppendLog("重新启用蓝色大肥鱼...");
             StartDshThread();
         }
 
         private void InstallDshThread()
         {
             RunOnUi(delegate { _btnInstall.IsEnabled = false; });
-            SetStatus("正在安装 DSH...");
-            AppendLog("开始安装：npm install -g " + PackageName);
+            SetStatus("正在捕捉 蓝色大肥鱼...");
+            AppendLog("开始执行捕捉：npm install -g " + PackageName);
 
             var psi = BuildPsi("cmd.exe", "/c npm install -g " + PackageName);
             try
@@ -878,23 +952,23 @@ namespace DshLauncherWpf
 
                 if (code == 0)
                 {
-                    AppendLog("DSH 安装完成，正在重新检测环境...");
+                    AppendLog("DSH 捕捉完成，正在重新检测环境...");
                     Thread t = new Thread(DetectEnvironment);
                     t.IsBackground = true;
                     t.Start();
                 }
                 else
                 {
-                    AppendLog("安装失败，退出码 " + code + "，请查看上方日志。");
+                    AppendLog("步骤失败，退出码 " + code + "，请查看上方日志。");
                     RunOnUi(delegate { _btnInstall.IsEnabled = true; });
-                    SetStatus("安装失败");
+                    SetStatus("捕捉失败");
                 }
             }
             catch (Exception ex)
             {
-                AppendLog("安装出错：" + ex.Message);
+                AppendLog("捕捉出错：" + ex.Message);
                 RunOnUi(delegate { _btnInstall.IsEnabled = true; });
-                SetStatus("安装失败");
+                SetStatus("捕捉失败");
             }
         }
 
@@ -905,18 +979,18 @@ namespace DshLauncherWpf
                 Thread.Sleep(1000);
                 if (IsPortOpen(3080))
                 {
-                    AppendLog("服务已就绪，自动打开浏览器...");
+                    AppendLog("蓝色大肥鱼已就绪，自动前往工位...");
                     OpenBrowser();
                     RunOnUi(delegate
                     {
                         _serviceRunning = true;
                         RefreshEnvCards();
                     });
-                    SetStatus("服务运行中");
+                    SetStatus("蓝色大肥鱼工作中...");
                     return;
                 }
             }
-            AppendLog("等待 30 秒后服务仍未就绪，请查看上方日志排查。");
+            AppendLog("等待 30 秒后蓝色大肥鱼仍未就绪，请查看上方日志排查。");
         }
 
         // ------------------------------------------------------------------
@@ -1022,7 +1096,7 @@ namespace DshLauncherWpf
                         UseShellExecute = false,
                         CreateNoWindow = true
                     });
-                    AppendLog("已强制停止进程 PID " + id + "（含子进程）。");
+                    AppendLog("开除吃干饭蓝色大肥鱼 PID " + id + "（含子进程）。");
                 }
                 catch (Exception ex)
                 {
@@ -1107,9 +1181,9 @@ namespace DshLauncherWpf
             sb.AppendLine("  · 后注册占用：" + ownerDisplay);
             sb.AppendLine("  · 本地冲突插件：" + claimantDisplay);
             sb.AppendLine();
-            sb.AppendLine("原因：Cordis 服务名是全局唯一的，同名服务只能有一个提供者。");
+            sb.AppendLine("报告长官：Cordis 服务名是全局唯一的，同名服务只能有一个提供者。");
             sb.AppendLine();
-            sb.AppendLine("请选择卸载其中一方（卸载后需重启服务）：");
+            sb.AppendLine("哥们你选一个卸载吧（卸载后要重启服务哦！）：");
             if (!string.IsNullOrEmpty(removeOwner))
                 sb.AppendLine("  · 「卸载占用方」将移除 " + removeOwner);
             if (!string.IsNullOrEmpty(removeClaimant))
@@ -1127,7 +1201,7 @@ namespace DshLauncherWpf
         {
             var dlg = new Window
             {
-                Title = "DSH 启动失败：插件服务冲突",
+                Title = "蓝色大肥鱼 启动失败：插件服务冲突",
                 Width = 540,
                 SizeToContent = SizeToContent.Height,
                 WindowStartupLocation = WindowStartupLocation.CenterScreen,
@@ -1223,7 +1297,7 @@ namespace DshLauncherWpf
                 RunOnUi(delegate
                 {
                     MessageBoxResult r = MessageBox.Show(
-                        "已成功卸载 " + package + "。\r\n\r\n是否立即重启服务？",
+                        "已成功卸载 " + package + "。\r\n\r\n是否立即重启蓝色大肥鱼？",
                         "卸载完成", MessageBoxButton.YesNo, MessageBoxImage.Question);
                     if (r == MessageBoxResult.Yes)
                     {
@@ -1616,12 +1690,12 @@ namespace DshLauncherWpf
                 CloseChoice choice = ShowClosePrompt(pids.Count);
                 if (choice == CloseChoice.StopAndClose)
                 {
-                    AppendLog("关闭启动器：正在强制停止 DSH 服务（" + pids.Count + " 个进程）...");
+                    AppendLog("关闭启动器：正在开除 蓝色大肥鱼（" + pids.Count + " 条进程）...");
                     ForceStopAll(pids);
                 }
                 else if (choice == CloseChoice.CloseOnly)
                 {
-                    AppendLog("启动器已关闭，DSH 服务保持运行（" + pids.Count + " 个进程）。");
+                    AppendLog("启动器已关闭，蓝色大肥鱼保持手感中（" + pids.Count + " 条进程）。");
                 }
                 else
                 {
@@ -1653,7 +1727,7 @@ namespace DshLauncherWpf
 
             var txt = new TextBlock
             {
-                Text = "检测到 DSH 服务仍在运行（" + pidCount + " 个进程）。\r\n\r\n请选择关闭方式：",
+                Text = "检测到 蓝色大肥鱼仍在加班（" + pidCount + " 条进程）。\r\n\r\n请选择慰问方式：",
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 16),
                 Foreground = new SolidColorBrush(Color.FromRgb(40, 44, 52))
@@ -1668,15 +1742,15 @@ namespace DshLauncherWpf
             Grid.SetRow(btnPanel, 1);
             grid.Children.Add(btnPanel);
 
-            var btnStop = MakeButton("停止并关闭", 110, Color.FromRgb(198, 60, 60));
+            var btnStop = MakeButton("你被开除了", 110, Color.FromRgb(198, 60, 60));
             btnStop.Click += delegate { result = CloseChoice.StopAndClose; dlg.Close(); };
             btnPanel.Children.Add(btnStop);
 
-            var btnCloseOnly = MakeButton("仅关闭窗口", 110, Color.FromRgb(0, 122, 204));
+            var btnCloseOnly = MakeButton("我先走了好好干", 110, Color.FromRgb(0, 122, 204));
             btnCloseOnly.Click += delegate { result = CloseChoice.CloseOnly; dlg.Close(); };
             btnPanel.Children.Add(btnCloseOnly);
 
-            var btnCancel = MakeButton("取消", 80, Color.FromRgb(88, 88, 96));
+            var btnCancel = MakeButton("嘿嘿点错了", 80, Color.FromRgb(88, 88, 96));
             btnCancel.Click += delegate { result = CloseChoice.Cancel; dlg.Close(); };
             btnPanel.Children.Add(btnCancel);
 
@@ -1938,6 +2012,55 @@ namespace DshLauncherWpf
         }
     }
 
+    internal class UpdatePromptWindow : Window
+    {
+        public UpdatePromptWindow(string latest, string current)
+        {
+            Title = "发现新版本";
+            Width = 400;
+            SizeToContent = SizeToContent.Height;
+            ResizeMode = ResizeMode.NoResize;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Background = Brushes.White;
+            FontFamily = new FontFamily("Microsoft YaHei UI");
+
+            var sp = new StackPanel { Margin = new Thickness(28, 24, 28, 20) };
+
+            sp.Children.Add(new TextBlock
+            {
+                Text = "发现新版本 " + latest + "，当前 " + current + "\r\n是否更新？",
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center,
+                Foreground = new SolidColorBrush(Color.FromRgb(40, 44, 52))
+            });
+
+            var btnPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 18, 0, 0)
+            };
+
+            var btnYes = MainWindow.MakeButton("更就完了", 110, Color.FromRgb(0, 150, 90));
+            var btnNo = MainWindow.MakeButton("更个鸡毛", 110, Color.FromRgb(88, 88, 96));
+
+            btnYes.Click += delegate
+            {
+                var owner = Owner as MainWindow;
+                if (owner != null) owner.StartDshUpdate();
+                Close();
+            };
+            btnNo.Click += delegate { Close(); };
+
+            btnPanel.Children.Add(btnYes);
+            btnPanel.Children.Add(btnNo);
+            sp.Children.Add(btnPanel);
+
+            Content = sp;
+        }
+    }
+
     internal static class Program
     {
         private const string SingleInstanceMutexName =
@@ -1952,7 +2075,7 @@ namespace DshLauncherWpf
                 if (!createdNew)
                 {
                     MessageBox.Show(
-                        "DSH 一键启动器已经运行，请勿重复运行。",
+                        "oi oi oi小鬼，你已经打开了一个了喂！",
                         "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }

@@ -134,10 +134,10 @@ namespace DshLauncherWpf
             // 标题栏：左侧标题 + 右侧环境/关于按钮
             var titleBar = new DockPanel { Margin = new Thickness(12, 6, 12, 4) };
 
-            _btnAbout = MakeSmallButton("关于", 64, Color.FromRgb(88, 88, 96));
-            _btnCheck = MakeSmallButton("检查更新", 80, Color.FromRgb(0, 122, 204));
+            _btnAbout = MakeSmallButton("关于", 64, Color.FromRgb(142, 68, 173));
+            _btnCheck = MakeSmallButton("检查DSH更新", 80, Color.FromRgb(0, 122, 204));
             _btnProxy = MakeSmallButton("本地代理", 80, Color.FromRgb(0, 150, 90));
-            _btnMirror = MakeSmallButton("NPM镜像源", 80, Color.FromRgb(0, 122, 204));
+            _btnMirror = MakeSmallButton("NPM镜像源", 80, Color.FromRgb(230, 145, 56));
             _btnAbout.VerticalAlignment = VerticalAlignment.Center;
             _btnMirror.VerticalAlignment = VerticalAlignment.Center;
             _btnCheck.VerticalAlignment = VerticalAlignment.Center;
@@ -145,7 +145,39 @@ namespace DshLauncherWpf
             _btnMirror.ToolTip = "下载缓慢？切换国内 npm 镜像源";
             _btnCheck.ToolTip = "拉取最新版本与当前版本对比";
             _btnProxy.ToolTip = "写入 PowerShell 代理函数（ep/dp）";
-            _btnAbout.Click += BtnAbout_Click;
+            bool aboutLongPressed = false;
+            DispatcherTimer aboutHoldTimer = null;
+            _btnAbout.PreviewMouseDown += delegate
+            {
+                aboutLongPressed = false;
+                if (aboutHoldTimer == null)
+                {
+                    aboutHoldTimer = new DispatcherTimer();
+                    aboutHoldTimer.Interval = TimeSpan.FromSeconds(1.5);
+                    aboutHoldTimer.Tick += delegate
+                    {
+                        aboutHoldTimer.Stop();
+                        aboutLongPressed = true;
+                        var dlg = new NodeJsInstallWindow();
+                        dlg.Owner = this;
+                        dlg.ShowDialog();
+                    };
+                }
+                aboutHoldTimer.Start();
+            };
+            _btnAbout.PreviewMouseUp += delegate
+            {
+                if (aboutHoldTimer != null) aboutHoldTimer.Stop();
+            };
+            _btnAbout.Click += delegate(object s, RoutedEventArgs e)
+            {
+                if (aboutLongPressed)
+                {
+                    aboutLongPressed = false;
+                    return;
+                }
+                BtnAbout_Click(s, e);
+            };
             _btnMirror.Click += BtnMirror_Click;
             _btnCheck.Click += BtnCheckUpdate_Click;
             _btnProxy.Click += BtnProxy_Click;
@@ -475,11 +507,9 @@ namespace DshLauncherWpf
 
                 if (!_nodeOk)
                 {
-                    MessageBoxResult r = MessageBox.Show(
-                        "未检测到 Node.js，是否前往官方下载页？",
-                        "提示", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                    if (r == MessageBoxResult.Yes)
-                        Process.Start("https://nodejs.org/zh-cn/download");
+                    var dlg = new NodeJsInstallWindow();
+                    dlg.Owner = this;
+                    dlg.ShowDialog();
                 }
             });
         }
@@ -591,13 +621,12 @@ namespace DshLauncherWpf
                 {
                     if (code == 0)
                     {
-                        MessageBox.Show("已切换至国内镜像源：\r\nhttps://registry.npmmirror.com",
-                            "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                        ShowInfo("提示", "已切换至国内镜像源：\r\nhttps://registry.npmmirror.com");
                         AppendLog("npm 镜像源已切换为 https://registry.npmmirror.com");
                     }
                     else
                     {
-                        MessageBox.Show("切换镜像源失败：" + outp, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        ShowInfo("错误", "切换镜像源失败：" + outp);
                     }
                 });
             });
@@ -615,25 +644,13 @@ namespace DshLauncherWpf
                 RunOnUi(delegate
                 {
                     if (string.IsNullOrEmpty(latest))
-                    {
-                        MessageBox.Show("获取最新版本失败，请检查网络。", "检查更新",
-                            MessageBoxButton.OK, MessageBoxImage.Warning);
-                    }
+                        ShowInfo("检查更新", "获取最新版本失败，请检查网络。");
                     else if (string.IsNullOrEmpty(_dshVersion))
-                    {
-                        MessageBox.Show("最新版本：" + latest + "\r\n当前版本：未知", "检查更新",
-                            MessageBoxButton.OK, MessageBoxImage.Information);
-                    }
+                        ShowInfo("检查更新", "最新版本：" + latest + "\r\n当前版本：未知");
                     else if (string.Equals(latest, _dshVersion, StringComparison.OrdinalIgnoreCase))
-                    {
-                        MessageBox.Show("已是最新版本（" + latest + "）", "检查更新",
-                            MessageBoxButton.OK, MessageBoxImage.Information);
-                    }
+                        ShowInfo("检查更新", "已是最新版本（" + latest + "）");
                     else
-                    {
-                        MessageBox.Show("发现新版本 " + latest + "，当前 " + _dshVersion, "检查更新",
-                            MessageBoxButton.OK, MessageBoxImage.Information);
-                    }
+                        ShowInfo("检查更新", "发现新版本 " + latest + "，当前 " + _dshVersion);
                 });
             });
             t.IsBackground = true;
@@ -651,26 +668,24 @@ namespace DshLauncherWpf
 
                 if (File.Exists(profile) && File.ReadAllText(profile).Contains("function ep"))
                 {
-                    MessageBox.Show("本地代理函数（ep/dp）已存在于配置文件中。\r\n\r\n" +
+                    ShowInfo("本地代理", "本地代理函数（ep/dp）已存在于配置文件中。\r\n\r\n" +
                         "使用方法：终端输入 ep 开启代理、dp 关闭代理。\r\n\r\n" +
-                        "删除方法：PowerShell 输入 notepad $PROFILE，删除对应的 ep/dp 函数后保存。",
-                        "本地代理", MessageBoxButton.OK, MessageBoxImage.Information);
+                        "删除方法：PowerShell 输入 notepad $PROFILE，删除对应的 ep/dp 函数后保存。");
                     return;
                 }
 
                 File.AppendAllText(profile, (File.Exists(profile) ? "\r\n" : "") + ProxyProfileCode + "\r\n", Encoding.UTF8);
 
-                MessageBox.Show("已写入本地代理配置：\r\n" + profile + "\r\n\r\n" +
+                ShowInfo("本地代理", "已写入本地代理配置：\r\n" + profile + "\r\n\r\n" +
                     "使用方法（重新打开终端后生效）：\r\n" +
                     "  · 输入 ep 开启代理（127.0.0.1:7890）\r\n" +
                     "  · 输入 dp 关闭代理\r\n\r\n" +
                     "删除方法：\r\n" +
-                    "  PowerShell 输入 notepad $PROFILE，删除对应的 ep/dp 函数代码后保存即可。",
-                    "本地代理", MessageBoxButton.OK, MessageBoxImage.Information);
+                    "  PowerShell 输入 notepad $PROFILE，删除对应的 ep/dp 函数代码后保存即可。");
             }
             catch (Exception ex)
             {
-                MessageBox.Show("写入失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowInfo("错误", "写入失败：" + ex.Message);
             }
         }
 
@@ -678,6 +693,54 @@ namespace DshLauncherWpf
         {
             string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             return System.IO.Path.Combine(docs, "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1");
+        }
+
+        private void ShowInfo(string title, string message)
+        {
+            var dlg = new InfoWindow(title, message);
+            dlg.Owner = this;
+            dlg.ShowDialog();
+        }
+
+        public void StartNodeJsInstall(string versionArg)
+        {
+            Thread t = new Thread(() => InstallNodeJsThread(versionArg));
+            t.IsBackground = true;
+            t.Start();
+        }
+
+        private void InstallNodeJsThread(string versionArg)
+        {
+            bool isLatest = string.IsNullOrEmpty(versionArg);
+            string wingetCmd = isLatest
+                ? "winget install OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements"
+                : "winget install OpenJS.NodeJS.LTS --version " + versionArg +
+                  " --accept-package-agreements --accept-source-agreements";
+            AppendLog("开始安装 Node.js：" + (isLatest ? "最新版" : "版本 " + versionArg));
+            AppendLog("执行：" + wingetCmd);
+
+            var psi = BuildPsi("cmd.exe", "/c " + wingetCmd);
+            try
+            {
+                var p = new Process { StartInfo = psi };
+                p.Start();
+                ReadLinesUtf8Async(p.StandardOutput.BaseStream, delegate(string line) { AppendLog(CleanAnsi(line)); });
+                ReadLinesUtf8Async(p.StandardError.BaseStream, delegate(string line) { AppendLog(CleanAnsi(line)); });
+                p.WaitForExit();
+                int code = p.ExitCode;
+                if (code == 0)
+                    AppendLog("Node.js 安装完成，正在重新检测环境...");
+                else
+                    AppendLog("Node.js 安装未完成（退出码 " + code + "），请查看上方日志。");
+
+                Thread t = new Thread(DetectEnvironment);
+                t.IsBackground = true;
+                t.Start();
+            }
+            catch (Exception ex)
+            {
+                AppendLog("Node.js 安装出错：" + ex.Message);
+            }
         }
 
         private void BtnAbout_Click(object sender, RoutedEventArgs e)
@@ -1677,6 +1740,201 @@ namespace DshLauncherWpf
             sp.Children.Add(btnGithub);
 
             Content = sp;
+        }
+    }
+
+    internal class InfoWindow : Window
+    {
+        public InfoWindow(string title, string message)
+        {
+            Title = title;
+            Width = 440;
+            SizeToContent = SizeToContent.Height;
+            ResizeMode = ResizeMode.NoResize;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Background = Brushes.White;
+            FontFamily = new FontFamily("Microsoft YaHei UI");
+
+            var sp = new StackPanel { Margin = new Thickness(28, 24, 28, 20) };
+
+            var msg = new TextBlock
+            {
+                Text = message,
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = new SolidColorBrush(Color.FromRgb(40, 44, 52))
+            };
+            sp.Children.Add(msg);
+
+            var btnOk = MainWindow.MakeButton("确定", 100, Color.FromRgb(0, 122, 204));
+            btnOk.Margin = new Thickness(0, 18, 0, 0);
+            btnOk.HorizontalAlignment = HorizontalAlignment.Center;
+            btnOk.Click += delegate { Close(); };
+            sp.Children.Add(btnOk);
+
+            Content = sp;
+        }
+    }
+
+    internal class NodeJsInstallWindow : Window
+    {
+        private WrapPanel _versionPanel;
+        private TextBlock _status;
+
+        public NodeJsInstallWindow()
+        {
+            Title = "\u5b89\u88c5 Node.js";
+            Width = 460;
+            Height = 480;
+            ResizeMode = ResizeMode.NoResize;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Background = Brushes.White;
+            FontFamily = new FontFamily("Microsoft YaHei UI");
+
+            var grid = new Grid { Margin = new Thickness(26, 20, 26, 16) };
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var desc = new TextBlock
+            {
+                Text = "\u672a\u68c0\u6d4b\u5230 Node.js\uff0c\u70b9\u51fb\u4e0b\u65b9\u7248\u672c\u6309\u94ae\u5373\u53ef\u5b89\u88c5\u5bf9\u5e94\u7248\u672c\uff1a",
+                FontSize = 13,
+                Foreground = new SolidColorBrush(Color.FromRgb(40, 44, 52)),
+                Margin = new Thickness(0, 0, 0, 10),
+                TextWrapping = TextWrapping.Wrap
+            };
+            Grid.SetRow(desc, 0);
+            grid.Children.Add(desc);
+
+            _versionPanel = new WrapPanel();
+            var scroller = new ScrollViewer
+            {
+                Content = _versionPanel,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            Grid.SetRow(scroller, 1);
+            grid.Children.Add(scroller);
+
+            _status = new TextBlock
+            {
+                Text = "\u6b63\u5728\u83b7\u53d6\u53ef\u7528\u7248\u672c...",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromRgb(120, 124, 132)),
+                Margin = new Thickness(0, 0, 0, 10),
+                TextWrapping = TextWrapping.Wrap
+            };
+            Grid.SetRow(_status, 2);
+            grid.Children.Add(_status);
+
+            var btnPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            var btnLatest = MainWindow.MakeButton("\u5b89\u88c5\u6700\u65b0\u7248", 110, Color.FromRgb(0, 122, 204));
+            var btnDownload = MainWindow.MakeButton("\u53bb\u4e0b\u8f7d\u9875", 90, Color.FromRgb(88, 88, 96));
+            var btnCancel = MainWindow.MakeButton("\u53d6\u6d88", 80, Color.FromRgb(158, 60, 60));
+
+            btnLatest.Click += delegate
+            {
+                var owner = Owner as MainWindow;
+                if (owner != null) owner.StartNodeJsInstall("");
+                Close();
+            };
+            btnDownload.Click += delegate
+            {
+                try { Process.Start("https://nodejs.org/zh-cn/download"); }
+                catch { }
+            };
+            btnCancel.Click += delegate { Close(); };
+
+            btnPanel.Children.Add(btnLatest);
+            btnPanel.Children.Add(btnDownload);
+            btnPanel.Children.Add(btnCancel);
+            Grid.SetRow(btnPanel, 3);
+            grid.Children.Add(btnPanel);
+
+            Content = grid;
+
+            Loaded += delegate
+            {
+                Thread t = new Thread(LoadVersions);
+                t.IsBackground = true;
+                t.Start();
+            };
+        }
+
+        private void LoadVersions()
+        {
+            try
+            {
+                string outp;
+                int code = MainWindow.RunSync("cmd.exe",
+                    "/c winget show OpenJS.NodeJS.LTS --versions --accept-source-agreements", out outp);
+                var versions = ParseVersions(outp);
+                Dispatcher.BeginInvoke(new Action(delegate
+                {
+                    if (versions.Count == 0)
+                    {
+                        _status.Text = "\u83b7\u53d6\u7248\u672c\u5931\u8d25\uff0c\u53ef\u5c1d\u8bd5\u300c\u53bb\u4e0b\u8f7d\u9875\u300d\u624b\u52a8\u5b89\u88c5\u3002\r\n" + outp;
+                        return;
+                    }
+                    BuildVersionButtons(versions);
+                    _status.Text = "\u5171 " + versions.Count + " \u4e2a\u7248\u672c\uff0c\u70b9\u51fb\u6309\u94ae\u5373\u53ef\u5b89\u88c5\u3002";
+                }));
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.BeginInvoke(new Action(delegate
+                {
+                    _status.Text = "\u83b7\u53d6\u7248\u672c\u5931\u8d25\uff1a" + ex.Message;
+                }));
+            }
+        }
+
+        private void BuildVersionButtons(List<string> versions)
+        {
+            var rainbow = new[]
+            {
+                Color.FromRgb(230, 145, 56),
+                Color.FromRgb(0, 122, 204),
+                Color.FromRgb(0, 150, 90),
+                Color.FromRgb(142, 68, 173),
+                Color.FromRgb(198, 60, 60),
+                Color.FromRgb(0, 150, 136)
+            };
+
+            for (int i = 0; i < versions.Count; i++)
+            {
+                string ver = versions[i];
+                var b = MainWindow.MakeButton(ver, 170, rainbow[i % rainbow.Length]);
+                b.Margin = new Thickness(0, 0, 10, 10);
+                b.Click += delegate
+                {
+                    var owner = Owner as MainWindow;
+                    if (owner != null) owner.StartNodeJsInstall(ver);
+                    Close();
+                };
+                _versionPanel.Children.Add(b);
+            }
+        }
+
+        private static List<string> ParseVersions(string output)
+        {
+            var list = new List<string>();
+            if (string.IsNullOrEmpty(output)) return list;
+            foreach (string line in output.Split('\n'))
+            {
+                string t = line.Trim();
+                if (t.Length == 0) continue;
+                if (t.StartsWith("Found ", StringComparison.OrdinalIgnoreCase)) continue;
+                if (Regex.IsMatch(t, @"^\d+(\.\d+)+"))
+                    list.Add(t);
+            }
+            return list;
         }
     }
 

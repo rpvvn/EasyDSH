@@ -11,6 +11,8 @@
 ---
 </div>
 
+
+
 ## ✨ Key Features
 - 🚀 **One-Click Start**: Automatically detect the runtime environment, launch the DSH Web service in the background, and open the browser automatically once the service is ready.
 - 🔄 **One-Click Restart**: Force terminate the running service → wait for the port to be released → restart the service.
@@ -26,11 +28,22 @@
 
 ---
 
+<div align="center">
+
+## UI
+
+<img src="docs/main_ui.jpg" alt="UI" width="100%">
+
+
+---
+</div>
+
+
 ## 📋 Prerequisites
-| Dependency | Description |
-|------|------|
+| Dependency         | Description                                                              |
+| ------------------ | ------------------------------------------------------------------------ |
 | Windows 7 or later | Requires .NET Framework 4.0 or higher (pre-installed on Windows 10 / 11) |
-| Node.js | Bundled with npm, required for installing and running DSH |
+| Node.js            | Bundled with npm, required for installing and running DSH                |
 
 ---
 
@@ -88,13 +101,13 @@ After pushing the tag to remote repository, the CI workflow will automatically c
 
 ## ⚙️ How It Works
 
-| Action | Implementation Details |
-| --- | --- |
-| Start | Prefer globally installed `dsh web`; fallback to `npx --yes @deepseek‑ai/dsh web`. |
-| Stop | Use WMI to scan node processes whose command line contains `deepseek‑ai`, pair with netstat to locate processes bound to port 3080, then execute `taskkill /F /T` for forced termination. |
-| Environment Check | Run `node -v` / `npm -v` / `npm config get prefix\|cache` / port 3080 connectivity check |
-| Listening Port | Default: `127.0.0.1:3080` |
-| Conflict Diagnosis | Capture runtime output from `dsh web`. Use regex to identify Cordis service‑name collision, parse conflicting package names, display pop‑up alert with one‑click uninstall options. |
+| Action             | Implementation Details                                                                                                                                                                    |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Start              | Prefer globally installed `dsh web`; fallback to `npx --yes @deepseek‑ai/dsh web`.                                                                                                        |
+| Stop               | Use WMI to scan node processes whose command line contains `deepseek‑ai`, pair with netstat to locate processes bound to port 3080, then execute `taskkill /F /T` for forced termination. |
+| Environment Check  | Run `node -v` / `npm -v` / `npm config get prefix\|cache` / port 3080 connectivity check                                                                                                  |
+| Listening Port     | Default: `127.0.0.1:3080`                                                                                                                                                                 |
+| Conflict Diagnosis | Capture runtime output from `dsh web`. Use regex to identify Cordis service‑name collision, parse conflicting package names, display pop‑up alert with one‑click uninstall options.       |
 
 ---
 

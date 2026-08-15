@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - 新增NodeJS下载，提供所有LTS版本一键下载通道
+- 增加长按按钮小彩蛋
 
 ### Changed
 
@@ -20,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - 修复Nodejs 版本返回错误
-
+- 修复了一些交互BUG
 
 
 ## [2.0.0] - 2026-08-15

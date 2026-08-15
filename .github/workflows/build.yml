@@ -41,6 +41,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: DSH-Launcher.exe
-          generate_release_notes: true
+          body_path: UpdateLog.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

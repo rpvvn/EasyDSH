@@ -22,7 +22,8 @@
 - 🛡 **Service Conflict Diagnostics**: Automatically identify plugin service name conflicts when startup fails. A popup window will show which package occupies the service and which one causes the conflict, with a one-click uninstall option for either package.
 - 🔌 **Flexible Close**: When closing the window, choose "Stop & Close" or "Close Window Only" to keep the DSH service running in the background without force-stopping it.
 - 🚫 **Single Instance**: Detect an already-running instance at startup and show "Already running — please do not run it again", then exit to prevent duplicate launches.
-- ℹ️ **Extra Support**: Switch to China NPM mirror registry
+- ℹ️ **Extra Support**: NPM Domestic Mirror Source Switching, Local Download Proxy Switching, DSH Version Management
+
 ---
 
 ## 📋 Prerequisites

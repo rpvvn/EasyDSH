@@ -50,6 +50,7 @@ namespace DshLauncherWpf
         private Button _btnStop;
         private Button _btnMirror;
         private Button _btnCheck;
+        private Button _btnProxy;
         private Button _btnAbout;
         private TextBlock _lblStatus;
 
@@ -69,6 +70,23 @@ namespace DshLauncherWpf
         private string _dshCmd = "";
 
         private static readonly Regex AnsiRegex = new Regex("\x1b\\[[0-9;?]*[ -/]*[@-~]");
+
+        private const string ProxyProfileCode =
+            "function ep {\r\n" +
+            "    $env:HTTP_PROXY=\"http://127.0.0.1:7890\"\r\n" +
+            "    $env:HTTPS_PROXY=\"http://127.0.0.1:7890\"\r\n" +
+            "    $env:NO_PROXY=\"localhost,127.0.0.1\"\r\n" +
+            "    Write-Host \"Proxy enabled for current session\"\r\n" +
+            "}\r\n" +
+            "\r\n" +
+            "function dp {\r\n" +
+            "    Remove-Item Env:HTTP_PROXY -ErrorAction SilentlyContinue\r\n" +
+            "    Remove-Item Env:HTTPS_PROXY -ErrorAction SilentlyContinue\r\n" +
+            "    Remove-Item Env:NO_PROXY -ErrorAction SilentlyContinue\r\n" +
+            "    Write-Host \"Proxy disabled\"\r\n" +
+            "}\r\n" +
+            "\r\n" +
+            "Write-Host \"Tip: ep enable proxy, dp disable proxy\"";
 
         // 服务占用冲突识别：运行时捕捉 DSH 原始报错并重新提示
         private static readonly Regex CollisionOriginalRegex = new Regex(
@@ -118,19 +136,25 @@ namespace DshLauncherWpf
 
             _btnAbout = MakeSmallButton("关于", 64, Color.FromRgb(88, 88, 96));
             _btnCheck = MakeSmallButton("检查更新", 80, Color.FromRgb(0, 122, 204));
-            _btnMirror = MakeSmallButton("国内镜像源", 80, Color.FromRgb(0, 122, 204));
+            _btnProxy = MakeSmallButton("本地代理", 80, Color.FromRgb(0, 150, 90));
+            _btnMirror = MakeSmallButton("NPM镜像源", 80, Color.FromRgb(0, 122, 204));
             _btnAbout.VerticalAlignment = VerticalAlignment.Center;
             _btnMirror.VerticalAlignment = VerticalAlignment.Center;
             _btnCheck.VerticalAlignment = VerticalAlignment.Center;
+            _btnProxy.VerticalAlignment = VerticalAlignment.Center;
             _btnMirror.ToolTip = "下载缓慢？切换国内 npm 镜像源";
             _btnCheck.ToolTip = "拉取最新版本与当前版本对比";
+            _btnProxy.ToolTip = "写入 PowerShell 代理函数（ep/dp）";
             _btnAbout.Click += BtnAbout_Click;
             _btnMirror.Click += BtnMirror_Click;
             _btnCheck.Click += BtnCheckUpdate_Click;
+            _btnProxy.Click += BtnProxy_Click;
             DockPanel.SetDock(_btnAbout, Dock.Right);
             DockPanel.SetDock(_btnCheck, Dock.Right);
+            DockPanel.SetDock(_btnProxy, Dock.Right);
             DockPanel.SetDock(_btnMirror, Dock.Right);
             titleBar.Children.Add(_btnAbout);
+            titleBar.Children.Add(_btnProxy);
             titleBar.Children.Add(_btnCheck);
             titleBar.Children.Add(_btnMirror);
 
@@ -614,6 +638,46 @@ namespace DshLauncherWpf
             });
             t.IsBackground = true;
             t.Start();
+        }
+
+        private void BtnProxy_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string profile = GetPowerShellProfilePath();
+                string dir = System.IO.Path.GetDirectoryName(profile);
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+
+                if (File.Exists(profile) && File.ReadAllText(profile).Contains("function ep"))
+                {
+                    MessageBox.Show("本地代理函数（ep/dp）已存在于配置文件中。\r\n\r\n" +
+                        "使用方法：终端输入 ep 开启代理、dp 关闭代理。\r\n\r\n" +
+                        "删除方法：PowerShell 输入 notepad $PROFILE，删除对应的 ep/dp 函数后保存。",
+                        "本地代理", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                File.AppendAllText(profile, (File.Exists(profile) ? "\r\n" : "") + ProxyProfileCode + "\r\n", Encoding.UTF8);
+
+                MessageBox.Show("已写入本地代理配置：\r\n" + profile + "\r\n\r\n" +
+                    "使用方法（重新打开终端后生效）：\r\n" +
+                    "  · 输入 ep 开启代理（127.0.0.1:7890）\r\n" +
+                    "  · 输入 dp 关闭代理\r\n\r\n" +
+                    "删除方法：\r\n" +
+                    "  PowerShell 输入 notepad $PROFILE，删除对应的 ep/dp 函数代码后保存即可。",
+                    "本地代理", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("写入失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private static string GetPowerShellProfilePath()
+        {
+            string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            return System.IO.Path.Combine(docs, "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1");
         }
 
         private void BtnAbout_Click(object sender, RoutedEventArgs e)

@@ -7,7 +7,7 @@
 # DSH One-Click Launcher
 
 **Skip manual CLI commands: One-click lightweight launcher for DeepSeek DSH**
-> 🌐 Language: [简体中文](README.md) · **English**
+#### 🌐 Language: [简体中文](README.md) · **English**
 ---
 </div>
 

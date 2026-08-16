@@ -7,7 +7,7 @@
 # DSH 一键启动器
 **谁TM输命令启动！快捷小工具一键搞定大肥鱼DSH**<br>
 
-> 🌐 [English](readmeEN.md) · **简体中文**
+#### 🌐 [English](readmeEN.md) · **简体中文**
 
 ---
 

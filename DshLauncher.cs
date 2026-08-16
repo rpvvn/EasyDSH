@@ -73,21 +73,39 @@ namespace DshLauncherWpf
         private static readonly Regex AnsiRegex = new Regex("\x1b\\[[0-9;?]*[ -/]*[@-~]");
 
         private const string ProxyProfileCode =
+            "# ===== Local proxy helper: ep / dp / pstat =====\r\n" +
+            "$script:proxyAddr = \"http://127.0.0.1:7890\"\r\n" +
+            "$script:noProxy   = \"localhost,127.0.0.1\"\r\n" +
+            "$script:proxyPort = 7890\r\n" +
+            "\r\n" +
+            "function pstat {\r\n" +
+            "    $envP = if ($env:HTTP_PROXY) { $env:HTTP_PROXY } else { \"null\" }\r\n" +
+            "    $gitP = git config --global --get http.proxy\r\n" +
+            "    if (-not $gitP) { $gitP = \"null\" }\r\n" +
+            "    Write-Host (\"Env: {0} | Git: {1}\" -f $envP, $gitP)\r\n" +
+            "    $c = New-Object Net.Sockets.TCPClient\r\n" +
+            "    try { $c.Connect(\"127.0.0.1\", $script:proxyPort); Write-Host \"Port $($script:proxyPort): ok\" }\r\n" +
+            "    catch { Write-Host \"Port $($script:proxyPort): fail\" }\r\n" +
+            "    finally { $c.Close() }\r\n" +
+            "}\r\n" +
+            "\r\n" +
             "function ep {\r\n" +
-            "    $env:HTTP_PROXY=\"http://127.0.0.1:7890\"\r\n" +
-            "    $env:HTTPS_PROXY=\"http://127.0.0.1:7890\"\r\n" +
-            "    $env:NO_PROXY=\"localhost,127.0.0.1\"\r\n" +
-            "    Write-Host \"Proxy enabled for current session\"\r\n" +
+            "    $env:HTTP_PROXY  = $script:proxyAddr\r\n" +
+            "    $env:HTTPS_PROXY = $script:proxyAddr\r\n" +
+            "    $env:NO_PROXY    = $script:noProxy\r\n" +
+            "    git config --global http.proxy  $script:proxyAddr\r\n" +
+            "    git config --global https.proxy $script:proxyAddr\r\n" +
+            "    pstat\r\n" +
             "}\r\n" +
             "\r\n" +
             "function dp {\r\n" +
-            "    Remove-Item Env:HTTP_PROXY -ErrorAction SilentlyContinue\r\n" +
-            "    Remove-Item Env:HTTPS_PROXY -ErrorAction SilentlyContinue\r\n" +
-            "    Remove-Item Env:NO_PROXY -ErrorAction SilentlyContinue\r\n" +
-            "    Write-Host \"Proxy disabled\"\r\n" +
+            "    Remove-Item Env:HTTP_PROXY, Env:HTTPS_PROXY, Env:NO_PROXY -ErrorAction SilentlyContinue\r\n" +
+            "    git config --global --unset http.proxy  2>$null\r\n" +
+            "    git config --global --unset https.proxy 2>$null\r\n" +
+            "    pstat\r\n" +
             "}\r\n" +
             "\r\n" +
-            "Write-Host \"Tip: ep enable proxy, dp disable proxy\"";
+            "Write-Host \"ep=enable | dp=disable | pstat=status\"";
 
         // 服务占用冲突识别：运行时捕捉 DSH 原始报错并重新提示
         private static readonly Regex CollisionOriginalRegex = new Regex(

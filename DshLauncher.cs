@@ -641,7 +641,7 @@ namespace DshLauncherWpf
                 _btnStop.IsEnabled = false;
                 RefreshEnvCards();
             });
-            SetStatus("蓝色大肥鱼正在放生");
+            SetStatus("蓝色大肥鱼已放生大自然");
         }
 
         private void BtnBrowser_Click(object sender, RoutedEventArgs e)

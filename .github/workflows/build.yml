@@ -36,13 +36,17 @@ jobs:
           path: DSH-Launcher.exe
           if-no-files-found: error
 
-      - name: Create Release (on tag)
+      - name: Create/Update Release (on tag)
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
         run: |
-          gh release create "${GITHUB_REF_NAME}" DSH-Launcher.exe \
-            --title "DSH Launcher ${GITHUB_REF_NAME}" \
-            --notes-file UpdateLog.md || \
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             gh release edit "${GITHUB_REF_NAME}" --notes-file UpdateLog.md
+            gh release upload "${GITHUB_REF_NAME}" DSH-Launcher.exe --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" DSH-Launcher.exe \
+              --title "DSH Launcher ${GITHUB_REF_NAME}" \
+              --notes-file UpdateLog.md
+          fi
         env:
           GH_TOKEN: ${{ github.token }}

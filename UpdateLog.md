@@ -6,6 +6,19 @@ All notable changes to this project will be documented in this file, which is al
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-08-16
+
+### Added
+
+- 新增软件版本识别
+- 新增workflows 版本提取
+
+### Changed
+
+- 优化workflows匹配逻辑
+
+
+
 ## [2.2.0] - 2026-08-16
 
 ### Added

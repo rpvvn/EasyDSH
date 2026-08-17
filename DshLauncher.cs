@@ -24,6 +24,7 @@ namespace DshLauncherWpf
     {
         private const string WebUrl = "http://127.0.0.1:3080";
         private const string PackageName = "@deepseek-ai/dsh";
+        internal const string LauncherVersion = "v2.2.1";
 
         // 颜色
         private static readonly Color PanelBackColor = Color.FromRgb(246, 248, 250);
@@ -339,7 +340,7 @@ namespace DshLauncherWpf
 
             Loaded += delegate
             {
-                AppendLog("启动器已就绪，正在巡视领地...");
+                AppendLog("启动器 " + LauncherVersion + "版 已就绪，正在巡视领地...");
                 Thread t = new Thread(DetectEnvironment);
                 t.IsBackground = true;
                 t.Start();
@@ -1921,6 +1922,15 @@ namespace DshLauncherWpf
                 FontSize = 20,
                 FontWeight = FontWeights.Bold,
                 HorizontalAlignment = HorizontalAlignment.Center
+            });
+
+            sp.Children.Add(new TextBlock
+            {
+                Text = MainWindow.LauncherVersion,
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromRgb(160, 164, 172)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 2, 0, 0)
             });
 
             sp.Children.Add(new TextBlock

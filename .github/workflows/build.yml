@@ -36,17 +36,40 @@ jobs:
           path: DSH-Launcher.exe
           if-no-files-found: error
 
+      - name: Extract Release Notes for tag version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"   # v2.2.0 → 2.2.0
+          awk -v ver="$VERSION" '
+            BEGIN { found = 0; printing = 0 }
+            /^## \[/ {
+              if (printing) exit
+              if ($0 ~ "^## \\[" ver "\\]") { found = 1; printing = 1 }
+            }
+            printing { print }
+            END {
+              if (!found) {
+                print "Error: version " ver " not found in UpdateLog.md" > "/dev/stderr"
+                exit 1
+              }
+            }
+          ' UpdateLog.md > release_notes.md
+
+          echo "=== Extracted Release Notes ==="
+          cat release_notes.md
+
       - name: Create/Update Release (on tag)
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
         run: |
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release edit "${GITHUB_REF_NAME}" --notes-file UpdateLog.md
+            gh release edit "${GITHUB_REF_NAME}" --notes-file release_notes.md
             gh release upload "${GITHUB_REF_NAME}" DSH-Launcher.exe --clobber
           else
             gh release create "${GITHUB_REF_NAME}" DSH-Launcher.exe \
               --title "DSH Launcher ${GITHUB_REF_NAME}" \
-              --notes-file UpdateLog.md
+              --notes-file release_notes.md
           fi
         env:
           GH_TOKEN: ${{ github.token }}

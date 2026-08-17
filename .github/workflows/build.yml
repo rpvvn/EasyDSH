@@ -40,23 +40,30 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"   # v2.2.0 → 2.2.0
-          awk -v ver="$VERSION" '
-            BEGIN { found = 0; printing = 0 }
-            /^## \[/ {
-              if (printing) exit
-              if ($0 ~ "^## \\[" ver "\\]") { found = 1; printing = 1 }
-            }
-            printing { print }
-            END {
-              if (!found) {
-                print "Error: version " ver " not found in UpdateLog.md" > "/dev/stderr"
-                exit 1
-              }
-            }
-          ' UpdateLog.md > release_notes.md
+          VERSION="${GITHUB_REF_NAME#v}"   # v2.2.1 → 2.2.1
+          UPDATE_LOG="UpdateLog.md"
 
-          echo "=== Extracted Release Notes ==="
+          # 1) Locate the version header line, e.g. "## [2.2.1]"
+          START_LINE=$(grep -n "^## \\[${VERSION}\\]" "$UPDATE_LOG" | head -1 | cut -d: -f1)
+          if [ -z "$START_LINE" ]; then
+            echo "::error::Version ${VERSION} not found in ${UPDATE_LOG}"
+            exit 1
+          fi
+
+          # 2) From the line AFTER START_LINE, find the NEXT version header "## ["
+          #    (tail -n +N = print from line N onward; grep -n renumbers from 1)
+          NEXT_LINE=$(tail -n +$((START_LINE + 1)) "$UPDATE_LOG" | grep -n "^## \\[" | head -1 | cut -d: -f1)
+
+          # 3) Extract everything from START_LINE up to (but NOT including) the next header
+          if [ -z "$NEXT_LINE" ]; then
+            # No next version → extract to end of file
+            tail -n +"$START_LINE" "$UPDATE_LOG" > release_notes.md
+          else
+            END_LINE=$((START_LINE + NEXT_LINE - 1))
+            sed -n "${START_LINE},${END_LINE}p" "$UPDATE_LOG" > release_notes.md
+          fi
+
+          echo "=== Release Notes for ${VERSION} ==="
           cat release_notes.md
 
       - name: Create/Update Release (on tag)

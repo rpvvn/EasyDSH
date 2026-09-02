@@ -24,7 +24,7 @@ namespace DshLauncherWpf
     {
         private const string WebUrl = "http://127.0.0.1:3080";
         private const string PackageName = "@deepseek-ai/dsh";
-        internal const string LauncherVersion = "v2.2.3";
+        internal const string LauncherVersion = "v2.3.0";
 
         // 颜色
         private static readonly Color PanelBackColor = Color.FromRgb(246, 248, 250);
@@ -695,20 +695,29 @@ namespace DshLauncherWpf
         {
             Thread t = new Thread(delegate ()
             {
-                string outp;
-                int code = RunSync("cmd.exe", "/c npm view @deepseek-ai/dsh version", out outp);
-                string latest = code == 0 ? outp.Trim() : "";
+                string latest;
+                string source = "git tags";
+                if (!TryGetLatestGitVersion(out latest))
+                {
+                    // 兜底：git 不可用时回退到 npm view（仅看正式发布版）
+                    string outp;
+                    int code = RunSync("cmd.exe", "/c npm view @deepseek-ai/dsh version", out outp);
+                    latest = code == 0 ? outp.Trim() : "";
+                    source = "npm";
+                }
+                string finalLatest = latest;
+                string typeNote = IsPrerelease(finalLatest) ? "（alpha/rc 测试版）" : "";
                 RunOnUi(delegate
                 {
-                    if (string.IsNullOrEmpty(latest))
+                    if (string.IsNullOrEmpty(finalLatest))
                         ShowInfo("检查更新", "获取最新版本失败，没网络了哥。");
                     else if (string.IsNullOrEmpty(_dshVersion))
-                        ShowInfo("检查更新", "最新版本：" + latest + "\r\n当前版本：未知");
-                    else if (string.Equals(latest, _dshVersion, StringComparison.OrdinalIgnoreCase))
-                        ShowInfo("检查更新", "已是最新版本（" + latest + "）");
+                        ShowInfo("检查更新", "最新版本：" + finalLatest + typeNote + "\r\n当前版本：未知\r\n来源：" + source);
+                    else if (string.Equals(finalLatest, _dshVersion, StringComparison.OrdinalIgnoreCase))
+                        ShowInfo("检查更新", "已是最新版本（" + finalLatest + "）");
                     else
                     {
-                        var dlg = new UpdatePromptWindow(latest, _dshVersion);
+                        var dlg = new UpdatePromptWindow(finalLatest, _dshVersion);
                         dlg.Owner = this;
                         dlg.ShowDialog();
                     }
@@ -716,6 +725,127 @@ namespace DshLauncherWpf
             });
             t.IsBackground = true;
             t.Start();
+        }
+
+        /// <summary>
+        /// 直接读取 GitHub 仓库的全部 tag（含 alpha/rc 预发布版），返回语义化版本最高的一个。
+        /// 失败（如未安装 git）返回 false，由调用方回退到 npm。
+        /// </summary>
+        private static bool TryGetLatestGitVersion(out string latest)
+        {
+            latest = "";
+            try
+            {
+                string outp;
+                int code = RunSync("cmd.exe", "/c git ls-remote --tags https://github.com/deepseek-ai/deepseek-harness.git", out outp);
+                if (code != 0) return false;
+
+                var versions = new List<string>();
+                foreach (string line in outp.Split('\n'))
+                {
+                    string t = line.Trim();
+                    if (t.Length == 0) continue;
+                    int idx = t.IndexOf("refs/tags/", StringComparison.Ordinal);
+                    if (idx < 0) continue;
+                    string tag = t.Substring(idx + "refs/tags/".Length);
+                    if (tag.EndsWith("^{}", StringComparison.Ordinal))
+                        tag = tag.Substring(0, tag.Length - 3); // 去掉注解 tag 的剥壳行
+                    if (!tag.StartsWith("dsh-v", StringComparison.Ordinal)) continue;
+                    string ver = tag.Substring("dsh-v".Length);
+                    if (string.IsNullOrEmpty(ver) || !char.IsDigit(ver[0])) continue;
+                    versions.Add(ver);
+                }
+                if (versions.Count == 0) return false;
+
+                versions.Sort(CompareDshVersions);
+                latest = versions[versions.Count - 1];
+                return true;
+            }
+            catch { return false; }
+        }
+
+        private static bool IsPrerelease(string ver)
+        {
+            if (string.IsNullOrEmpty(ver)) return false;
+            return ver.IndexOf('-') > 0;
+        }
+
+        /// <summary>
+        /// 语义化版本比较，支持 alpha/rc 预发布号：相同基础版本下 stable &gt; rc &gt; alpha &gt; beta，
+        /// 预发布号数字按数值比较（alpha.10 &gt; alpha.4）。
+        /// </summary>
+        private static int CompareDshVersions(string a, string b)
+        {
+            string baseA, preA, baseB, preB;
+            SplitSemver(a, out baseA, out preA);
+            SplitSemver(b, out baseB, out preB);
+
+            int c = CompareBase(baseA, baseB);
+            if (c != 0) return c;
+
+            bool hasPreA = preA.Length > 0;
+            bool hasPreB = preB.Length > 0;
+            if (!hasPreA && !hasPreB) return 0;
+            if (!hasPreA) return 1;   // 正式版 > 预发布版
+            if (!hasPreB) return -1;  // 预发布版 < 正式版
+            return ComparePrerelease(preA, preB);
+        }
+
+        private static void SplitSemver(string ver, out string basePart, out string pre)
+        {
+            basePart = ver;
+            pre = "";
+            if (string.IsNullOrEmpty(ver)) return;
+            int dash = ver.IndexOf('-');
+            if (dash > 0)
+            {
+                basePart = ver.Substring(0, dash);
+                pre = ver.Substring(dash + 1);
+            }
+        }
+
+        private static int CompareBase(string a, string b)
+        {
+            string[] pa = a.Split('.');
+            string[] pb = b.Split('.');
+            int n = Math.Max(pa.Length, pb.Length);
+            for (int i = 0; i < n; i++)
+            {
+                int va = i < pa.Length ? ParseNum(pa[i]) : 0;
+                int vb = i < pb.Length ? ParseNum(pb[i]) : 0;
+                if (va != vb) return va.CompareTo(vb);
+            }
+            return 0;
+        }
+
+        private static int ParseNum(string s)
+        {
+            int v;
+            return int.TryParse(s, out v) ? v : 0;
+        }
+
+        private static int ComparePrerelease(string a, string b)
+        {
+            string[] ia = a.Split('.');
+            string[] ib = b.Split('.');
+            int n = Math.Min(ia.Length, ib.Length);
+            for (int i = 0; i < n; i++)
+            {
+                int c = ComparePreId(ia[i], ib[i]);
+                if (c != 0) return c;
+            }
+            return ia.Length.CompareTo(ib.Length);
+        }
+
+        private static int ComparePreId(string x, string y)
+        {
+            long xv, yv;
+            bool xn = long.TryParse(x, out xv);
+            bool yn = long.TryParse(y, out yv);
+            if (xn && yn) return xv.CompareTo(yv);   // 数字按数值比较
+            if (xn) return -1;                        // 数字标识符 < 字母标识符
+            if (yn) return 1;
+            return string.CompareOrdinal(x, y);       // alpha < beta < rc（字母序）
         }
 
         private void BtnProxy_Click(object sender, RoutedEventArgs e)
@@ -872,15 +1002,21 @@ namespace DshLauncherWpf
 
         public void StartDshUpdate()
         {
-            Thread t = new Thread(UpdateDshThread);
+            StartDshUpdate("");
+        }
+
+        public void StartDshUpdate(string version)
+        {
+            Thread t = new Thread(delegate () { UpdateDshThread(version); });
             t.IsBackground = true;
             t.Start();
         }
 
-        private void UpdateDshThread()
+        private void UpdateDshThread(string version)
         {
-            AppendLog("开始更新 DSH：npm install -g @deepseek-ai/dsh@latest");
-            var psi = BuildPsi("cmd.exe", "/c npm install -g @deepseek-ai/dsh@latest");
+            string spec = string.IsNullOrEmpty(version) ? PackageName + "@latest" : PackageName + "@" + version;
+            AppendLog("开始更新 DSH：npm install -g " + spec);
+            var psi = BuildPsi("cmd.exe", "/c npm install -g " + spec);
             try
             {
                 var p = new Process { StartInfo = psi };
@@ -2191,7 +2327,7 @@ namespace DshLauncherWpf
             btnYes.Click += delegate
             {
                 var owner = Owner as MainWindow;
-                if (owner != null) owner.StartDshUpdate();
+                if (owner != null) owner.StartDshUpdate(latest);
                 Close();
             };
             btnNo.Click += delegate { Close(); };

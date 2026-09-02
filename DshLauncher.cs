@@ -24,7 +24,7 @@ namespace DshLauncherWpf
     {
         private const string WebUrl = "http://127.0.0.1:3080";
         private const string PackageName = "@deepseek-ai/dsh";
-        internal const string LauncherVersion = "v2.2.2";
+        internal const string LauncherVersion = "v2.2.3";
 
         // 颜色
         private static readonly Color PanelBackColor = Color.FromRgb(246, 248, 250);

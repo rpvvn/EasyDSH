@@ -969,10 +969,13 @@ namespace DshLauncherWpf
             });
             SetStatus("正在启动 DSH...");
 
+            // DSH 新版本（dsh web）会自行打开默认浏览器；这里显式传 --no-open，
+            // 关闭 DSH 自带的浏览器弹出，只保留下方 OpenBrowserWhenReady 的一次自动打开，
+            // 避免每次启动弹出两个浏览器标签页。
             string args = _dshGlobal
-                ? "/c \"" + _dshCmd + "\" web"
-                : "/c npx --yes " + PackageName + " web";
-            AppendLog("启动命令：" + (_dshGlobal ? (_dshCmd + " web") : ("npx " + PackageName + " web")));
+                ? "/c \"" + _dshCmd + "\" web --no-open"
+                : "/c npx --yes " + PackageName + " web --no-open";
+            AppendLog("启动命令：" + (_dshGlobal ? (_dshCmd + " web --no-open") : ("npx " + PackageName + " web --no-open")));
 
             var psi = BuildPsi("cmd.exe", args);
             Process p = null;
